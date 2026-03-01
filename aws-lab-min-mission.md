@@ -225,9 +225,7 @@ Default: 10.100.1.0/24
 
 LogRetentionDays:
 
-Type: Number
-
-Default: 3
+(removed - logging is optional and enabled post-deploy)
 
 MinValue: 1
 

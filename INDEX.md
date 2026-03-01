@@ -17,8 +17,8 @@ techsummit-sec5-lab-minimal/
 │   ├── nfw-instructor.yaml (6.1 KB)
 │   │   └─ CloudFormation template for shared Network Firewall infrastructure
 │   │     • Deploy once per account per region (us-east-1, eu-west-2, ap-southeast-1)
-│   │     • Creates firewall VPC, Network Firewall, CloudWatch logging
-│   │     • 10 resources, 8 outputs, 216 lines
+│   │     • Creates firewall VPC and Network Firewall (logging optional)
+│   │     • 9 resources, 4 outputs, 155 lines
 │   │
 │   ├── nfw-student-min.yaml (8.8 KB)
 │   │   └─ CloudFormation template for per-student VPC + EC2
@@ -164,12 +164,12 @@ techsummit-sec5-lab-minimal/
 6. VERIFY DEPLOYMENT
    └─ Check Fleet Manager for EC2 instances
    └─ Test Session Manager access
-   └─ Verify CloudWatch logs
+   └─ (Optional) Verify CloudWatch logs
 
 7. RUN LAB EXERCISES
    └─ Students access instances
    └─ Run DNS, HTTP, HTTPS tests
-   └─ Monitor firewall rules
+   └─ (Optional) Monitor firewall logs
 
 8. CLEANUP
    └─ lab-cleanup.sh --delete-instructor

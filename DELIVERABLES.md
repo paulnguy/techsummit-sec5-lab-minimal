@@ -196,15 +196,14 @@ Student Accounts (Multiple):
 - No inbound security group rules
 
 ✓ **Data Protection**
-- CloudWatch logs encrypted by default
+- Optional CloudWatch logging (encrypts logs by default)
 - VPC endpoints for private AWS service connectivity
 - No internet-facing resources
 
 ✓ **Audit & Compliance**
 - All resources tagged for cost allocation
-- CloudWatch logs provide audit trail
+- Optional CloudWatch logging provides audit trail
 - CloudFormation artifacts enable compliance scanning
-- Firewall rule hits visible in real-time
 
 ---
 

@@ -68,7 +68,7 @@ Total Documentation:     2,929 lines
 **Key features**:
 - Default route (0.0.0.0/0) → Firewall endpoint
 - Session Manager access only (no SSH keys)
-- CloudWatch monitoring of firewall rules
+- Optional CloudWatch monitoring of firewall rules
 - All outputs for integration/verification
 
 ---
@@ -215,7 +215,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 | **Regions** | 3 (us-east-1, eu-west-2, ap-southeast-1) |
 | **Students Per Firewall** | 300+ (quota limit) |
 | **Session Manager Latency** | <2 seconds |
-| **CloudWatch Log Latency** | Real-time |
+| **CloudWatch Log Latency** | Optional (if enabled) |
 | **Cost Per Student (30 min)** | $0.04 |
 | **Cost for 100 Students** | ~$12 |
 | **Average Lab Duration** | 30 minutes |
@@ -240,7 +240,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 - ✓ Single-AZ design (AZ-a aligned)
 - ✓ SSM endpoints configured for private access
 - ✓ Optional rule groups can be added post-deploy
-- ✓ CloudWatch logging configured
+- ✓ Optional CloudWatch logging (if enabled)
 
 ### Deployment Readiness
 - ✓ All prerequisites documented
