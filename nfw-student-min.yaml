@@ -1,0 +1,298 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Minimal per-student VPC + EC2 + SSM endpoints + NFW endpoint association (single-AZ).
+  Deployed via CloudFormation StackSets into target accounts & Regions.
+  Creates one mini-lab per student: VPC, subnet (AZ-a), RT, VPC Endpoint Association
+  to shared firewall, default route → firewall endpoint, SSM VPC endpoints, and an EC2
+  instance with SSM-only access.
+
+Parameters:
+  LabName:
+    Type: String
+    Default: nfw-lab-student
+    AllowedPattern: '^[A-Za-z0-9-]+$'
+    ConstraintDescription: Must contain only alphanumerics and hyphens
+    Description: Name of the lab
+
+  FirewallArn:
+    Type: String
+    Description: ARN of the shared Network Firewall
+    AllowedPattern: '^arn:aws:network-firewall:[a-z0-9-]+:[0-9]{12}:firewall\/[A-Za-z0-9-]+$'
+
+  StudentVpcCIDR:
+    Type: String
+    Default: 10.1.0.0/16
+    AllowedPattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}$'
+    Description: CIDR block for student VPC
+
+  StudentSubnetCIDR:
+    Type: String
+    Default: 10.1.1.0/24
+    AllowedPattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}$'
+    Description: CIDR block for student subnet
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+    Description: EC2 instance type for student test instance
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Firewall Configuration
+        Parameters:
+          - FirewallArn
+      - Label:
+          default: Student VPC Configuration
+        Parameters:
+          - LabName
+          - StudentVpcCIDR
+          - StudentSubnetCIDR
+      - Label:
+          default: EC2 Configuration
+        Parameters:
+          - InstanceType
+
+Mappings:
+  # Amazon Linux 2023 AMI IDs (update if needed for your region)
+  RegionMap:
+    us-east-1:
+      AMI: ami-0c02fb55956c7d316
+    eu-west-2:
+      AMI: ami-0d71ea30463e0ff8d
+    ap-southeast-1:
+      AMI: ami-0dc5785603ad4ff54
+
+Resources:
+  # ============================================================================
+  # Student VPC and Networking
+  # ============================================================================
+  StudentVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref StudentVpcCIDR
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${LabName}-vpc'
+
+  StudentSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref StudentVpc
+      CidrBlock: !Ref StudentSubnetCIDR
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: !Sub '${LabName}-subnet-az-a'
+
+  StudentRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref StudentVpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${LabName}-rt'
+
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref StudentSubnet
+      RouteTableId: !Ref StudentRouteTable
+
+  # ============================================================================
+  # VPC Endpoint Association to Shared Network Firewall
+  # ============================================================================
+  FirewallEndpointAssociation:
+    Type: AWS::NetworkFirewall::VpcEndpointAssociation
+    Properties:
+      FirewallArn: !Ref FirewallArn
+      SubnetId: !Ref StudentSubnet
+
+  # Create route to firewall endpoint (after association is complete)
+  RouteToFirewall:
+    Type: AWS::EC2::Route
+    DependsOn: FirewallEndpointAssociation
+    Properties:
+      RouteTableId: !Ref StudentRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      VpcEndpointId: !GetAtt FirewallEndpointAssociation.EndpointId
+
+  # ============================================================================
+  # VPC Endpoints for SSM (no NAT, no public IPs)
+  # ============================================================================
+  # Security Group for VPC Endpoints
+  VpcEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${LabName}-vpce-sg'
+      GroupDescription: Security group for SSM VPC endpoints
+      VpcId: !Ref StudentVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref StudentVpcCIDR
+          Description: HTTPS for SSM endpoints
+      Tags:
+        - Key: Name
+          Value: !Sub '${LabName}-vpce-sg'
+
+  # SSM VPC Endpoint
+  SsmEndpoint:
+    Type: AWS::EC2::VpcEndpoint
+    Properties:
+      VpcId: !Ref StudentVpc
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssm'
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref StudentSubnet
+      SecurityGroupIds:
+        - !Ref VpcEndpointSecurityGroup
+
+  # EC2Messages VPC Endpoint
+  Ec2MessagesEndpoint:
+    Type: AWS::EC2::VpcEndpoint
+    Properties:
+      VpcId: !Ref StudentVpc
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ec2messages'
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref StudentSubnet
+      SecurityGroupIds:
+        - !Ref VpcEndpointSecurityGroup
+
+  # SSMMessages VPC Endpoint
+  SsmMessagesEndpoint:
+    Type: AWS::EC2::VpcEndpoint
+    Properties:
+      VpcId: !Ref StudentVpc
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssmmessages'
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref StudentSubnet
+      SecurityGroupIds:
+        - !Ref VpcEndpointSecurityGroup
+
+  # ============================================================================
+  # IAM Role and Instance Profile for EC2 (SSM access only)
+  # ============================================================================
+  SsmInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+      Tags:
+        - Key: Name
+          Value: !Sub '${LabName}-ssm-role'
+
+  SsmInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref SsmInstanceRole
+
+  # ============================================================================
+  # Security Group for Student EC2 Instance
+  # ============================================================================
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${LabName}-sg'
+      GroupDescription: Security group for student test instance
+      VpcId: !Ref StudentVpc
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic
+      Tags:
+        - Key: Name
+          Value: !Sub '${LabName}-sg'
+
+  # ============================================================================
+  # Student Test Instance (t3.micro with SSM-only access)
+  # ============================================================================
+  StudentTestInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref 'AWS::Region'
+        - AMI
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref SsmInstanceProfile
+      SubnetId: !Ref StudentSubnet
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+      EbsOptimized: false
+      Monitoring: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${LabName}-instance'
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          yum update -y
+          yum install -y curl wget bind-utils
+          echo "Lab instance ready for testing" > /tmp/lab-ready.txt
+
+Outputs:
+  StudentVpcId:
+    Description: ID of the student VPC
+    Value: !Ref StudentVpc
+    Export:
+      Name: !Sub '${LabName}-vpc-id'
+
+  StudentSubnetId:
+    Description: ID of the student subnet
+    Value: !Ref StudentSubnet
+    Export:
+      Name: !Sub '${LabName}-subnet-id'
+
+  FirewallEndpointId:
+    Description: ID of the firewall endpoint in this VPC
+    Value: !GetAtt FirewallEndpointAssociation.EndpointId
+    Export:
+      Name: !Sub '${LabName}-firewall-endpoint-id'
+
+  TestInstanceId:
+    Description: EC2 instance ID for the test instance
+    Value: !Ref StudentTestInstance
+    Export:
+      Name: !Sub '${LabName}-instance-id'
+
+  TestInstancePrivateIp:
+    Description: Private IP address of the test instance
+    Value: !GetAtt StudentTestInstance.PrivateIp
+    Export:
+      Name: !Sub '${LabName}-instance-private-ip'
+
+  SsmEndpointId:
+    Description: ID of the SSM VPC endpoint
+    Value: !Ref SsmEndpoint
+    Export:
+      Name: !Sub '${LabName}-ssm-endpoint-id'
+
+  VpcEndpointSecurityGroupId:
+    Description: Security group ID for VPC endpoints
+    Value: !Ref VpcEndpointSecurityGroup
+    Export:
+      Name: !Sub '${LabName}-vpce-sg-id'
