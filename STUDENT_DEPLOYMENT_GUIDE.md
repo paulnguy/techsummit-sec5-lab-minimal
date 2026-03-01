@@ -286,7 +286,7 @@ Logging is not enabled by default in the instructor template. If your instructor
 has enabled CloudWatch logging, you can see YOUR traffic:
 
 ```bash
-# View alert logs (rule violations)
+# View alert logs (if enabled)
 aws logs tail /aws/network-firewall/alert \
   --follow \
   --region ${REGION}

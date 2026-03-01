@@ -6,7 +6,7 @@ No EC2 quota checks (kept out as requested)
 
 What you get:
 
-Instructor stack (per Region/per account) – Builds the shared Network Firewall VPC (single‑AZ), policy, a stateful “ALERT on UDP/53” rule, firewall subnet & route to IGW. Logging is optional and can be enabled post‑deploy.
+Instructor stack (per Region/per account) – Builds the shared Network Firewall VPC (single‑AZ), policy, firewall subnet & route to IGW. Rule groups and logging are optional and can be enabled post‑deploy.
 Student StackSet template – For each student: VPC + subnet + route table, VPC Endpoint Association to your shared firewall, default route → firewall endpoint, SSM interface endpoints (ssm, ec2messages, ssmmessages) and a t3.micro test instance with SSM only.
 Runbook + cleanup – Step‑by‑step instructions to deploy across 3 accounts / 3 Regions with CloudFormation StackSets (service‑managed), plus an AWS CLI cleanup script.
 
@@ -23,7 +23,7 @@ Deploy once per account per Region (us-east-1, eu-west-2, ap-southeast-1).
 This stack creates:
 
 A firewall VPC with a firewall subnet (AZ‑a) + route to IGW
-Network Firewall with a stateful rule that ALERTs on UDP/53
+Network Firewall (rule groups optional)
 Optional CloudWatch logging (enable post‑deploy)
 Outputs: FirewallArn, FirewallId, FirewallAzName, FirewallVpcId
 
@@ -116,7 +116,7 @@ Console → Systems Manager → Fleet Manager → Nodes → select your instance
 
 Run:
 
-dig @8.8.8.8 amazon.com      # triggers ALERT (UDP/53)
+dig @8.8.8.8 amazon.com      # DNS connectivity test
 
 curl -I https://www.google.com
 
@@ -315,7 +315,7 @@ DestinationCidrBlock: 0.0.0.0/0
 
 GatewayId: !Ref IGW
 
-# Stateful rule group: ALERT on any UDP→53
+# Optional stateful rule group (not in current template)
 
 StatefulDnsAlertRG:
 

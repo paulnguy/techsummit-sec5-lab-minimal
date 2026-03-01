@@ -10,10 +10,10 @@ This package contains everything needed to deploy a scalable, production-ready A
 
 ### Deployment Templates (CloudFormation)
 
-**1. nfw-instructor.yaml** (216 lines)
+**1. nfw-instructor.yaml** (155 lines)
 - Instructor shared Network Firewall per account per region
 - Single-AZ firewall VPC with subnet, IGW, route table
-- Network Firewall with stateful rule group (ALERT on UDP/53)
+- Network Firewall (rule groups optional)
 - Optional logging (enable post-deploy)
 - 4 outputs for cross-stack integration
 - **Regions**: us-east-1, eu-west-2, ap-southeast-1
@@ -166,15 +166,14 @@ Student Accounts (Multiple):
 
 ### Phase 4: Validation
 - [ ] Check Fleet Manager: all instances show "Online"
-- [ ] Verify CloudWatch log groups populated
 - [ ] Test Session Manager access from one instance
-- [ ] Run test commands (dig, curl) to trigger logs
+- [ ] (Optional) Verify CloudWatch logging if enabled
 
 ### Phase 5: Student Lab Use
 - [ ] Provide student credentials/account access
 - [ ] Students access via Systems Manager → Fleet Manager
 - [ ] Students run lab exercises (DNS, HTTP, HTTPS)
-- [ ] Monitor CloudWatch ALERT logs for rule triggers
+- [ ] (Optional) Monitor CloudWatch logs if enabled
 
 ### Phase 6: Cleanup
 - [ ] Run lab-cleanup.sh --delete-instructor
@@ -278,8 +277,8 @@ lab-cleanup.sh
 - ✓ Matches mission guide requirements exactly
 - ✓ VPC Endpoint Association properly configured
 - ✓ SSM endpoints configured correctly
-- ✓ Firewall rule for UDP/53 implemented
-- ✓ CloudWatch logging configured
+- ✓ Rule groups can be added post-deploy if needed
+- ✓ Logging can be enabled post-deploy if needed
 - ✓ Single-AZ design (AZ-aligned)
 - ✓ Multi-region support verified
 

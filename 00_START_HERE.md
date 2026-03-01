@@ -40,7 +40,7 @@ Total Documentation:     2,929 lines
 
 **What it creates:**
 - Firewall VPC (10.0.0.0/16) in single AZ-a
-- Network Firewall with stateful rule (ALERT on UDP/53 DNS)
+- Network Firewall (rule groups optional)
 - Internet Gateway and routing
 - 4 CloudFormation outputs for cross-stack integration
 
@@ -239,7 +239,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 - ✓ VPC Endpoint Association correctly implemented
 - ✓ Single-AZ design (AZ-a aligned)
 - ✓ SSM endpoints configured for private access
-- ✓ Network Firewall rule for UDP/53 ALERT
+- ✓ Optional rule groups can be added post-deploy
 - ✓ CloudWatch logging configured
 
 ### Deployment Readiness
@@ -294,7 +294,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 
 Students will:
 1. Access EC2 instance via Session Manager (no SSH keys)
-2. Run DNS query: `dig @8.8.8.8 amazon.com` (triggers ALERT)
+2. Run DNS query: `dig @8.8.8.8 amazon.com`
 3. Test HTTPS: `curl -I https://www.google.com` (allowed)
 4. (Optional) Enable logging and view CloudWatch alerts
 5. Understand: How Network Firewall inspects traffic

@@ -252,7 +252,7 @@
 
 1. **AMI IDs**: Mapped AMIs are for Amazon Linux 2023 (update if using different distro)
 2. **Regions**: Only tested with us-east-1, eu-west-2, ap-southeast-1 (update RegionMap for other regions)
-3. **Firewall Rules**: UDP/53 ALERT rule is simple example (extend for production use cases)
+3. **Firewall Rules**: No rule group included by default (add rules post-deploy if needed)
 4. **Capacity**: FirewallRuleGroup capacity set to 100 (increase for complex rule sets)
 5. **VPC CIDR**: Example uses 10.x.x.x range (change if conflicts with existing infrastructure)
 
