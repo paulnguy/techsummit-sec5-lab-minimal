@@ -293,7 +293,7 @@ techsummit-sec5-lab-minimal/
 1. Review parameter options in template comments
 2. Update CIDR ranges in nfw-student-min.yaml (line ~30)
 3. Change AMI IDs in RegionMap for different regions
-4. Modify rule group in nfw-instructor.yaml (line ~100)
+4. Add rule groups post-deploy (or extend nfw-instructor.yaml)
 
 ---
 
@@ -303,7 +303,7 @@ After completing this lab, students will understand:
 - ✓ AWS Network Firewall architecture
 - ✓ VPC Endpoint Association for shared infrastructure
 - ✓ Multi-account AWS deployments using StackSets
-- ✓ Stateful firewall rules and logging
+- ✓ Optional firewall rules and logging
 - ✓ Serverless access patterns (Session Manager)
 - ✓ CloudWatch monitoring for security events
 

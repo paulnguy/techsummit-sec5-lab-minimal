@@ -242,7 +242,7 @@ aws ssm start-session \
 
 Once connected to your instance, try these commands:
 
-### Exercise 1: DNS Query (Triggers Firewall)
+### Exercise 1: DNS Query
 ```bash
 # Query Google's DNS servers - this goes through the firewall
 dig @8.8.8.8 amazon.com
@@ -525,7 +525,7 @@ After completing this lab, you understand:
 ✅ CloudFormation stack automation  
 ✅ AWS Session Manager (secure shell-less access)  
 ✅ VPC security and network isolation  
-✅ CloudWatch monitoring of traffic  
+✅ Optional CloudWatch monitoring of traffic  
 ✅ How to name resources uniquely across 300+ students  
 
 ---

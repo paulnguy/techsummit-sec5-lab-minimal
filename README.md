@@ -117,9 +117,9 @@ Student EC2           DNS Query                Shared Network Firewall
    ├──► dig @8.8.8.8 ────────┤                           │
    │    amazon.com           │◄───────────────────────── ┤
    │                         │  VPC Endpoint Association │
-  │                         │  (Stateful Inspection)    │
-  │                         │  Action: DEFAULT          │
-  │◄────── Response ────────┤                           │
+   │                         │  (Stateful Inspection)    │
+   │                         │  Action: DEFAULT          │
+   │◄────── Response ────────┤                           │
 ```
 
 ---
@@ -134,7 +134,7 @@ Deployed once **per account per Region** (management overhead = minimal).
 - **Firewall VPC** (10.0.0.0/16, single-AZ)
   - Subnet in AZ-a for firewall placement
   - Route to Internet Gateway
-  - Network Firewall with stateful rule group
+  - Network Firewall
 - **Rule Groups**: Optional, add post-deploy if needed
 - **Logging**: Optional, enable after deployment if needed
 
@@ -417,9 +417,9 @@ export OU_ID="ou-xxxx-yyyyyyyy"  # Or use ACCOUNT_IDS instead
 2. Verify instance IAM role has `AmazonSSMManagedInstanceCore` policy
 3. Check instance health: Systems Manager → Fleet Manager → Nodes
 
-### Issue: CloudWatch Logs Not Appearing
+### Issue: CloudWatch Logs Not Appearing (If Enabled)
 
-**Cause**: Logging configuration not applied or firewall not processing traffic.
+**Cause**: Logging not enabled, configuration not applied, or firewall not processing traffic.
 
 **Solution**:
 1. Verify logging configuration:
@@ -437,7 +437,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"  # Or use ACCOUNT_IDS instead
 - **No Inbound Access**: Instances have no inbound rules; only Session Manager access
 - **No Public IPs**: All communication through VPC endpoints (no Internet-facing services)
 - **Minimal Permissions**: IAM roles grant only SSM permissions
-- **Ephemeral Lab**: Resources are temporary; CloudWatch Logs retention = 30 days
+- **Ephemeral Lab**: Resources are temporary; logging retention is configurable if enabled
 - **Stateful Inspection**: Network Firewall performs deep packet inspection on all traffic
 
 ---
