@@ -5,10 +5,10 @@
 Your AWS Network Firewall multi-account lab is **complete and ready to deploy**. Here are all the files:
 
 ### Core Deployment Files
-1. **nfw-instructor.yaml** (216 lines)
+1. **nfw-instructor.yaml** (155 lines)
    - Shared Network Firewall infrastructure per account/region
-   - Single-AZ firewall with stateful UDP/53 ALERT rule
-   - CloudWatch logging (ALERT + FLOW)
+   - Single-AZ firewall (rule groups optional)
+   - Optional logging (enable post-deploy)
    - Deploy once per region in instructor account
 
 2. **nfw-student-min.yaml** (299 lines)
@@ -106,8 +106,8 @@ export OU_ID="ou-xxxx-yyyyyyyy"
         ┌─ Region: us-east-1 ──────────────────────┐
         │                                           │
         │  Instructor Account (Lab 1)               │
-        │  ├─ Firewall VPC + Network Firewall       │
-        │  └─ CloudWatch Logs (ALERT, FLOW)        │
+      │  ├─ Firewall VPC + Network Firewall       │
+      │  └─ Optional logging (enable post-deploy) │
         │                                           │
         │  Student Account (Lab 2)                  │
         │  ├─ Student VPC + Subnet (AZ-a)          │
@@ -199,7 +199,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 **VPC Endpoint Association fails?**
 → See README.md → Troubleshooting → "VPC Endpoint Association Fails"
 
-**CloudWatch Logs empty?**
+**CloudWatch Logs empty (if enabled)?**
 → See README.md → Troubleshooting → "CloudWatch Logs Not Appearing"
 
 ---

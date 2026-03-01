@@ -2,7 +2,7 @@
 
 ## Overview
 
-This lab demonstrates a **scalable, multi-account AWS Network Firewall deployment** designed for instructor-led training with minimal infrastructure footprint. It showcases how to deploy a shared Network Firewall that serves multiple student accounts via VPC Endpoint Associations, with centralized logging and control.
+This lab demonstrates a **scalable, multi-account AWS Network Firewall deployment** designed for instructor-led training with minimal infrastructure footprint. It showcases how to deploy a shared Network Firewall that serves multiple student accounts via VPC Endpoint Associations, with centralized control and optional logging.
 
 ### Key Features
 
@@ -62,18 +62,15 @@ This lab demonstrates a **scalable, multi-account AWS Network Firewall deploymen
 │  │  │  │  │  Network        │    │◄───────►│                     │ │ │  │
 │  │  │  │  │  Firewall       │    │  Route  │                     │ │ │  │
 │  │  │  │  │  - Endpoint     │    │  0.0.0/0│                     │ │ │  │
-│  │  │  │  │  - ALERT on DNS │    │         │                     │ │ │  │
+│  │  │  │  │  - Optional     │    │         │                     │ │ │  │
+│  │  │  │  │    rules        │    │         │                     │ │ │  │
 │  │  │  │  └─────────────────┘    │         │                     │ │ │  │
 │  │  │  └─────────────────────────┘         └─────────────────────┘ │ │  │
 │  │  │                                                                │  │ │
 │  │  └────────────────────────────────────────────────────────────────┘  │ │
 │  │                                                                      │ │
-│  │  Logging:                                                            │ │
-│  │  ┌─────────────────────────┐  ┌──────────────────────────────┐       │ │
-│  │  │  CloudWatch Log Group   │  │  CloudWatch Log Group        │       │ │
-│  │  │  /aws/network-firewall/ │  │  /aws/network-firewall/flow  │       │ │
-│  │  │  alert                  │  │                              │       │ │
-│  │  └─────────────────────────┘  └──────────────────────────────┘       │ │
+│  │  Optional Logging (enable post-deploy):                              │ │
+│  │  CloudWatch Logs for ALERT and FLOW                                  │ │
 │  │                                                                      │ │
 │  └──────────────────────────────────────────────────────────────────────┘ │
 │                                                                           │
@@ -115,17 +112,14 @@ This lab demonstrates a **scalable, multi-account AWS Network Firewall deploymen
 ### Traffic Flow
 
 ```
-Student EC2           DNS Query (UDP/53)        Shared Network Firewall
-   │                        │                           │
-   ├──► dig @8.8.8.8 ────────┤                          │
-   │    amazon.com           │◄─────────────────────────┤
+Student EC2           DNS Query                Shared Network Firewall
+   │                         │                           │
+   ├──► dig @8.8.8.8 ────────┤                           │
+   │    amazon.com           │◄───────────────────────── ┤
    │                         │  VPC Endpoint Association │
-   │                         │  (Stateful Inspection)    │
-   │                         │  Action: ALERT            │
-   │◄────── Response ────────┤                          │  CloudWatch
-   │                         │                          │◄──── ALERT Logs
-   │                         │                          │      (UDP/53)
-   │                         │                          │─► Flow Logs
+  │                         │  (Stateful Inspection)    │
+  │                         │  Action: DEFAULT          │
+  │◄────── Response ────────┤                           │
 ```
 
 ---
@@ -141,10 +135,8 @@ Deployed once **per account per Region** (management overhead = minimal).
   - Subnet in AZ-a for firewall placement
   - Route to Internet Gateway
   - Network Firewall with stateful rule group
-- **Stateful Rule**: ALERT on UDP/53 (DNS queries)
-- **CloudWatch Log Groups**:
-  - `/aws/network-firewall/alert` - Rule hits
-  - `/aws/network-firewall/flow` - All traffic flows
+- **Rule Groups**: Optional, add post-deploy if needed
+- **Logging**: Optional, enable after deployment if needed
 
 **Parameters:**
 - `FirewallName`: Name of the firewall (default: `nfw-lab`)
@@ -153,8 +145,7 @@ Deployed once **per account per Region** (management overhead = minimal).
 
 **Outputs:**
 - `FirewallArn`: Used by student templates
-- `FirewallEndpointId`: Firewall endpoint identifier
-- `AlertLogGroupName` / `FlowLogGroupName`: CloudWatch log group names
+- `FirewallAzName`: Availability Zone hosting the firewall endpoint
 
 ---
 
@@ -356,7 +347,7 @@ aws ec2 describe-network-interfaces \
 Once connected to your EC2 instance via Session Manager:
 
 ```bash
-# Test DNS query (UDP/53) - triggers ALERT rule
+# Test DNS query (UDP/53)
 dig @8.8.8.8 amazon.com
 
 # Test HTTPS connectivity
@@ -364,36 +355,13 @@ curl -I https://www.google.com
 
 # Test HTTP connectivity
 curl -I http://example.com
-
-# Monitor rules in real-time
-# (In a separate window/terminal)
-aws logs tail /aws/network-firewall/alert --follow --region us-east-1
-aws logs tail /aws/network-firewall/flow --follow --region us-east-1
 ```
 
-### Viewing Firewall Logs
+### Viewing Firewall Logs (Optional)
 
-**In AWS Console** or **CLI**:
-
-```bash
-# View recent alert logs
-aws logs tail /aws/network-firewall/alert \
-  --region us-east-1 \
-  --since 5m \
-  --format short
-
-# View flow logs (all traffic)
-aws logs tail /aws/network-firewall/flow \
-  --region us-east-1 \
-  --since 5m \
-  --max-items 10
-
-# Search for specific traffic patterns
-aws logs filter-log-events \
-  --log-group-name /aws/network-firewall/alert \
-  --filter-pattern "UDP" \
-  --region us-east-1
-```
+Logging is not enabled by default in the instructor template. If you enable
+CloudWatch logging post-deployment, you can use `aws logs tail` to view
+ALERT and FLOW entries.
 
 ---
 

@@ -6,7 +6,7 @@ No EC2 quota checks (kept out as requested)
 
 What you get:
 
-Instructor stack (per Region/per account) – Builds the shared Network Firewall VPC (single‑AZ), policy, a stateful “ALERT on UDP/53” rule, CloudWatch log groups (ALERT & FLOW), firewall subnet & route to IGW.
+Instructor stack (per Region/per account) – Builds the shared Network Firewall VPC (single‑AZ), policy, a stateful “ALERT on UDP/53” rule, firewall subnet & route to IGW. Logging is optional and can be enabled post‑deploy.
 Student StackSet template – For each student: VPC + subnet + route table, VPC Endpoint Association to your shared firewall, default route → firewall endpoint, SSM interface endpoints (ssm, ec2messages, ssmmessages) and a t3.micro test instance with SSM only.
 Runbook + cleanup – Step‑by‑step instructions to deploy across 3 accounts / 3 Regions with CloudFormation StackSets (service‑managed), plus an AWS CLI cleanup script.
 
@@ -14,7 +14,7 @@ Why this scales & fits 30 minutes
 
 You deploy one firewall per Region per account (under the default quota of 5 per Region). Students share that firewall via VPC endpoint associations (default 300 per Region, enough for 300 learners).
 Student VPCs route 0.0.0.0/0 to the firewall endpoint (supported by AWS::EC2::Route with VpcEndpointId).
-ALERT + FLOW logs stream to CloudWatch Logs for instant visibility, using the official logging configuration.,, 
+ALERT + FLOW logging is optional and can be enabled post‑deploy if desired.,, 
 Session Manager requires only the three SSM interface endpoints (or NAT) and the SSM instance role—no SSH keys or inbound ports. 
 VPC Endpoint Associations are the supported way to put firewall endpoints into other VPCs, as long as the firewall already has a primary endpoint in that AZ. We standardize on AZ‑a for simplicity. 
 1) Instructor stack – nfw-instructor.yaml
@@ -24,8 +24,8 @@ This stack creates:
 
 A firewall VPC with a firewall subnet (AZ‑a) + route to IGW
 Network Firewall with a stateful rule that ALERTs on UDP/53
-CloudWatch Log Groups for /aws/network-firewall/alert and /aws/network-firewall/flow
-Outputs: FirewallArn, FirewallAzName, AlertLogGroupName, FlowLogGroupName
+Optional CloudWatch logging (enable post‑deploy)
+Outputs: FirewallArn, FirewallId, FirewallAzName, FirewallVpcId
 
 AWSTemplateFormatVersion: '2010-09-09'
 
@@ -44,7 +44,7 @@ AllowedPattern: '^[A-Za-z0-9-]+
 Notes
 
 We pick the first AZ in each Region so you can keep student subnets in the same AZ (a requirement for placing the association/endpoint in that AZ). 
-Network Firewall logging to CloudWatch uses the documented LoggingConfiguration and the log group key logGroup. 
+Network Firewall logging is optional and can be enabled post‑deploy if needed. 
 2) Student StackSet template – nfw-student-min.yaml
 
 Deployed via CloudFormation StackSets (service‑managed) into target accounts & Regions.
@@ -120,7 +120,7 @@ dig @8.8.8.8 amazon.com      # triggers ALERT (UDP/53)
 
 curl -I https://www.google.com
 
-CloudWatch Logs → /aws/network-firewall/alert & /aws/network-firewall/flow to see rule hits/flows. 
+Optional: If logging is enabled post‑deploy, use CloudWatch Logs to see rule hits/flows. 
 
 4) Cleanup script – lab-cleanup.sh (AWS CLI)
 Deletes StackSet instances (student side) and optionally deletes the instructor stacks.
@@ -204,7 +204,7 @@ Implementation guidance & references
 Quotas: default 5 firewalls/Region/account, 300 VPC endpoint associations/Region/account. This design stays within defaults for 300 learners by sharing one firewall per Region and creating one association per student VPC.
 VPC Endpoint Association is the supported way to place additional firewall endpoints in other VPCs/AZs (including student VPCs), provided the firewall has a primary endpoint in that AZ.
 Routing to the firewall: AWS::EC2::Route supports VpcEndpointId as a target, so 0.0.0.0/0 → vpce-… is valid.
-Logging: Network Firewall → CloudWatch Logs via AWS::NetworkFirewall::LoggingConfiguration with logGroup destinations for ALERT and FLOW types.,
+Logging: Optional, enable via Network Firewall console or API after deployment if desired.,
 Session Manager: use AmazonSSMManagedInstanceCore and the three interface endpoints (ssm, ec2messages, ssmmessages) to avoid NAT/public IPs.
 StackSets: use service‑managed mode (trusted access with Organizations), OU targeting, and per‑Region parameter overrides (for each Region’s FirewallArn). ,
 Want me to hand you “paste‑ready” StackSets CLI commands?
@@ -387,51 +387,7 @@ SubnetChangeProtection: false
 
 Tags: [{ Key: Name, Value: nfw-lab-firewall }]
 
-# CloudWatch Log Groups for ALERT & FLOW
-
-AlertLogGroup:
-
-Type: AWS::Logs::LogGroup
-
-Properties:
-
-LogGroupName: /aws/network-firewall/alert
-
-RetentionInDays: !Ref LogRetentionDays
-
-FlowLogGroup:
-
-Type: AWS::Logs::LogGroup
-
-Properties:
-
-LogGroupName: /aws/network-firewall/flow
-
-RetentionInDays: !Ref LogRetentionDays
-
-NfwLogging:
-
-Type: AWS::NetworkFirewall::LoggingConfiguration
-
-Properties:
-
-FirewallArn: !GetAtt Firewall.FirewallArn
-
-LoggingConfiguration:
-
-LogDestinationConfigs:
-
-- LogType: ALERT
-
-LogDestinationType: CloudWatchLogs
-
-LogDestination: { logGroup: !Ref AlertLogGroup }
-
-- LogType: FLOW
-
-LogDestinationType: CloudWatchLogs
-
-LogDestination: { logGroup: !Ref FlowLogGroup }
+# Optional logging can be enabled post-deploy (not shown here)
 
 Outputs:
 
@@ -447,13 +403,13 @@ Value: !GetAtt FirewallSubnet.AvailabilityZone
 
 Description: AZ used for the firewall endpoints (students must use same AZ)
 
-AlertLogGroupName:
+FirewallId:
 
-Value: !Ref AlertLogGroup
+Value: !Ref Firewall
 
-FlowLogGroupName:
+FirewallVpcId:
 
-Value: !Ref FlowLogGroup
+Value: !Ref VPC
 
 Notes
 

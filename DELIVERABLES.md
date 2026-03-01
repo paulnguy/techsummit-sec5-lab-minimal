@@ -14,8 +14,8 @@ This package contains everything needed to deploy a scalable, production-ready A
 - Instructor shared Network Firewall per account per region
 - Single-AZ firewall VPC with subnet, IGW, route table
 - Network Firewall with stateful rule group (ALERT on UDP/53)
-- CloudWatch log groups for ALERT and FLOW logs
-- 8 outputs for cross-stack integration
+- Optional logging (enable post-deploy)
+- 4 outputs for cross-stack integration
 - **Regions**: us-east-1, eu-west-2, ap-southeast-1
 - **Deployment**: Once per account per region
 - **Quota Impact**: 1 firewall per region (default quota: 5)
@@ -115,9 +115,7 @@ Instructor Account:
 │  ├─ Firewall Subnet (10.0.1.0/24) in AZ-a
 │  ├─ Network Firewall Endpoint
 │  ├─ Internet Gateway (route 0.0.0.0/0)
-│  └─ Logging:
-│     ├─ CloudWatch: /aws/network-firewall/alert
-│     └─ CloudWatch: /aws/network-firewall/flow
+│  └─ Optional logging (enable post-deploy)
 
 Student Accounts (Multiple):
 ├─ Student VPC (10.1.0.0/16)

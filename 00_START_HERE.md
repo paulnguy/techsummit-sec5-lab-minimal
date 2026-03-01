@@ -36,21 +36,19 @@ Total Documentation:     2,929 lines
 ## 🎯 Core Deliverables
 
 ### ✅ 1. nfw-instructor.yaml (Network Firewall Infrastructure)
-**Type**: CloudFormation Template | **Size**: 6.1 KB | **Resources**: 10
+**Type**: CloudFormation Template | **Size**: 6.1 KB | **Resources**: 9
 
 **What it creates:**
 - Firewall VPC (10.0.0.0/16) in single AZ-a
 - Network Firewall with stateful rule (ALERT on UDP/53 DNS)
-- CloudWatch Log Groups for ALERT and FLOW logs
 - Internet Gateway and routing
-- 8 CloudFormation outputs for cross-stack integration
+- 4 CloudFormation outputs for cross-stack integration
 
 **Deployment**: Once per account per region (us-east-1, eu-west-2, ap-southeast-1)
 
 **Outputs provide**:
 - `FirewallArn` ← Used by student template
-- `FirewallEndpointId` ← Student VPC association target
-- Log group names ← For CloudWatch queries
+- `FirewallAzName` ← AZ alignment reference
 
 ---
 
@@ -198,16 +196,14 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 - No inbound security group rules
 
 ✅ **Data Protection**
-- CloudWatch logs encrypted by default
-- 30-day log retention
 - VPC endpoints for private connectivity
 - No internet-facing resources
+- Optional logging can be enabled post-deploy
 
 ✅ **Audit & Compliance**
 - All resources tagged
-- CloudWatch provides audit trail
 - CloudFormation supports compliance scanning
-- Real-time rule violation alerts
+- Optional logging provides audit trail
 
 ---
 
@@ -278,14 +274,12 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 ### Phase 4: Validate (5 min)
 - [ ] Check Fleet Manager: instances online
 - [ ] Test Session Manager access
-- [ ] Verify CloudWatch logs
 - [ ] Run test lab exercise
 
 ### Phase 5: Use Lab (30 min)
 - [ ] Students access instances
 - [ ] Run DNS, HTTP, HTTPS tests
-- [ ] Monitor firewall rules
-- [ ] Analyze CloudWatch logs
+- [ ] (Optional) Enable and monitor firewall logs
 
 ### Phase 6: Cleanup (5 min)
 - [ ] Run lab-cleanup.sh
@@ -302,9 +296,8 @@ Students will:
 1. Access EC2 instance via Session Manager (no SSH keys)
 2. Run DNS query: `dig @8.8.8.8 amazon.com` (triggers ALERT)
 3. Test HTTPS: `curl -I https://www.google.com` (allowed)
-4. Monitor firewall: View CloudWatch /aws/network-firewall/alert
-5. Analyze traffic: Query flow logs for patterns
-6. Understand: How Network Firewall inspects traffic
+4. (Optional) Enable logging and view CloudWatch alerts
+5. Understand: How Network Firewall inspects traffic
 
 ---
 

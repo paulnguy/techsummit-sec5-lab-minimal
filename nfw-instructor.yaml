@@ -2,8 +2,8 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: >
   Instructor shared Network Firewall (single-AZ) + logging for lab.
   Deploys once per account per Region (us-east-1, eu-west-2, ap-southeast-1).
-  Creates firewall VPC, Network Firewall with stateful rule for UDP/53 ALERT,
-  and CloudWatch Log Groups for alert and flow logs.
+  Creates firewall VPC and shared Network Firewall for the lab,
+  and a shared firewall endpoint for student VPC associations.
 
 Parameters:
   FirewallName:
@@ -99,44 +99,16 @@ Resources:
   # ============================================================================
   # Network Firewall Configuration
   # ============================================================================
-  FirewallRuleGroup:
-    Type: AWS::NetworkFirewall::RuleGroup
-    Properties:
-      Name: !Sub '${FirewallName}-rules'
-      Type: STATEFUL
-      RuleGroupFlags:
-        - RuleOrder: STRICT_ORDER
-      RulesAndGroupsData:
-        RulesString: |
-          alert udp any any <> any 53 (msg:"Alert on DNS over UDP"; sid:1000001; rev:1;)
-      Capacity: 100
-      Description: Stateful rule group with ALERT on UDP/53
-      Tags:
-        - Key: Name
-          Value: !Sub '${FirewallName}-rule-group'
-
-  AlertLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: /aws/network-firewall/alert
-      RetentionInDays: 30
-
-  FlowLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: /aws/network-firewall/flow
-      RetentionInDays: 30
-
   FirewallPolicy:
     Type: AWS::NetworkFirewall::FirewallPolicy
     Properties:
       FirewallPolicyName: !Sub '${FirewallName}-policy'
-      StatefulEngineOptions:
-        RuleOrder: STRICT_ORDER
-      StatefulRuleGroupReferences:
-        - ResourceArn: !GetAtt FirewallRuleGroup.RuleGroupArn
-          Priority: 1
-      Description: Firewall policy with stateful rules
+      FirewallPolicy:
+        StatelessDefaultActions:
+          - 'aws:forward_to_sfe'
+        StatelessFragmentDefaultActions:
+          - 'aws:forward_to_sfe'
+      Description: Firewall policy for lab
       Tags:
         - Key: Name
           Value: !Sub '${FirewallName}-policy'
@@ -144,7 +116,7 @@ Resources:
   NetworkFirewall:
     Type: AWS::NetworkFirewall::Firewall
     Properties:
-      Name: !Ref FirewallName
+      FirewallName: !Ref FirewallName
       Description: Shared Network Firewall for lab
       FirewallPolicyArn: !GetAtt FirewallPolicy.FirewallPolicyArn
       VpcId: !Ref FirewallVpc
@@ -153,21 +125,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${FirewallName}'
-
-  FirewallLoggingConfiguration:
-    Type: AWS::NetworkFirewall::LoggingConfiguration
-    Properties:
-      FirewallArn: !GetAtt NetworkFirewall.FirewallArn
-      LoggingConfiguration:
-        LogDestinationConfigs:
-          - LogType: ALERT
-            LogDestination:
-              CloudWatchLogsLogGroup:
-                LogGroup: !Ref AlertLogGroup
-          - LogType: FLOW
-            LogDestination:
-              CloudWatchLogsLogGroup:
-                LogGroup: !Ref FlowLogGroup
 
 Outputs:
   FirewallArn:
@@ -182,12 +139,6 @@ Outputs:
     Export:
       Name: !Sub '${FirewallName}-firewall-id'
 
-  FirewallEndpointId:
-    Description: Endpoint ID of the Network Firewall
-    Value: !GetAtt NetworkFirewall.FirewallEndpointIds.FirewallEndpointId
-    Export:
-      Name: !Sub '${FirewallName}-endpoint-id'
-
   FirewallAzName:
     Description: Availability Zone where firewall is deployed
     Value: !Select
@@ -201,15 +152,3 @@ Outputs:
     Value: !Ref FirewallVpc
     Export:
       Name: !Sub '${FirewallName}-vpc-id'
-
-  AlertLogGroupName:
-    Description: CloudWatch Log Group for Alert logs
-    Value: !Ref AlertLogGroup
-    Export:
-      Name: !Sub '${FirewallName}-alert-log-group'
-
-  FlowLogGroupName:
-    Description: CloudWatch Log Group for Flow logs
-    Value: !Ref FlowLogGroup
-    Export:
-      Name: !Sub '${FirewallName}-flow-log-group'

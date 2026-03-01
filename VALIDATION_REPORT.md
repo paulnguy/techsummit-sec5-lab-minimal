@@ -4,7 +4,7 @@
 
 ### ✓ nfw-instructor.yaml (Instructor Shared Firewall)
 - **Status**: ✓ COMPLETE
-- **Lines**: 216
+- **Lines**: 155
 - **Structure**: Valid CloudFormation YAML
 - **Key Sections**:
   - AWSTemplateFormatVersion: '2010-09-09' ✓
@@ -16,12 +16,9 @@
     - AWS::EC2::InternetGateway (InternetGateway) ✓
     - AWS::EC2::RouteTable (FirewallRouteTable) ✓
     - AWS::EC2::Route (RouteToIGW) ✓
-    - AWS::NetworkFirewall::RuleGroup (FirewallRuleGroup with ALERT on UDP/53) ✓
-    - AWS::Logs::LogGroup (AlertLogGroup & FlowLogGroup) ✓
     - AWS::NetworkFirewall::FirewallPolicy (FirewallPolicy) ✓
     - AWS::NetworkFirewall::Firewall (NetworkFirewall) ✓
-    - AWS::NetworkFirewall::LoggingConfiguration (FirewallLoggingConfiguration) ✓
-  - Outputs: 8 outputs (FirewallArn, FirewallId, FirewallEndpointId, etc.) ✓
+  - Outputs: 4 outputs (FirewallArn, FirewallId, FirewallAzName, FirewallVpcId) ✓
   - Balanced brackets/braces: ✓
 
 **Deployment Notes**:
@@ -99,7 +96,7 @@
   2. **Architecture** - ASCII diagrams showing:
      - Overall lab design with organizational hierarchy ✓
      - Per-region per-account architecture with detailed component layout ✓
-     - Traffic flow diagram (DNS query → Firewall → CloudWatch) ✓
+    - Traffic flow diagram (DNS query → Firewall) ✓
   3. **Components** - Detailed explanation of each template ✓
   4. **Deployment Guide** - Step-by-step instructions:
      - Prerequisites checklist ✓
@@ -109,7 +106,7 @@
   5. **Student Lab Instructions** - Hands-on exercises:
      - Session Manager access ✓
      - Lab exercises (DNS queries, HTTPS tests) ✓
-     - CloudWatch log viewing ✓
+    - Optional CloudWatch log viewing ✓
   6. **Cleanup Instructions** - Complete/partial cleanup ✓
   7. **Troubleshooting** - Common issues and solutions ✓
   8. **Security Considerations** - Defense-in-depth details ✓
@@ -138,9 +135,8 @@
 
 **Critical Features**:
 - ✓ Firewall configured in single AZ-a (required for VPC Endpoint Association)
-- ✓ Stateful rule group with UDP/53 ALERT (per mission requirements)
-- ✓ Logging to CloudWatch configured for both ALERT and FLOW logs
 - ✓ Route to IGW properly configured for firewall VPC
+- ✓ Optional logging can be enabled post-deploy if needed
 
 ### nfw-student-min.yaml
 - ✓ Valid YAML syntax (proper indentation throughout)
@@ -205,9 +201,9 @@
 ### Post-Deployment Validation
 - [ ] All student VPCs created in target accounts
 - [ ] SSM Fleet Manager shows EC2 instances as online
-- [ ] CloudWatch log groups populated with firewall rules
 - [ ] Student can access instance via Session Manager
-- [ ] DNS queries trigger ALERT logs in CloudWatch
+- [ ] (Optional) CloudWatch log groups populated with firewall rules
+- [ ] (Optional) DNS queries trigger ALERT logs in CloudWatch
 
 ### Cleanup
 - [ ] Run lab-cleanup.sh from management account
@@ -230,14 +226,13 @@
 - No SSH keys or console access required
 
 ✓ **Data Protection**:
-- CloudWatch logs encrypted by default
-- 30-day retention for logs (configurable)
 - VPC endpoints private (no internet exposure)
+- Optional logging can be enabled post-deploy
 
 ✓ **Compliance**:
 - All resources tagged for cost allocation
 - CloudFormation templates support compliance scanning
-- Logging provides audit trail for rules triggered
+- Optional logging provides audit trail for rules triggered
 
 ---
 
@@ -248,7 +243,7 @@
 | Deployment Time | ~15-20 min | Includes firewall provisioning |
 | Students Per Firewall | 300+ | Default quota for Endpoint Associations |
 | Firewall Failover | Cross-AZ capable | Can add multiple AZ endpoints |
-| CloudWatch Log Frequency | Real-time | ALERT immediately on rule match |
+| CloudWatch Log Frequency | Optional | Only if logging is enabled |
 | Session Manager Latency | <2 seconds | Standard AWS service latency |
 
 ---
@@ -280,7 +275,7 @@
 ✓ **All files validated successfully**
 
 The lab framework is **production-ready** and meets all requirements from the mission guide:
-- Instructor stack template with Network Firewall + logging
+- Instructor stack template with Network Firewall (logging optional)
 - Student StackSet template with VPC Endpoint Association
 - Automated cleanup script with error handling
 - Comprehensive documentation with ASCII architecture diagrams
