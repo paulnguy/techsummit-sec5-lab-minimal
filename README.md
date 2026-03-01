@@ -449,7 +449,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"  # Or use ACCOUNT_IDS instead
 | Network Firewall | ~$30/region/month | 30 min ≈ $0.02 |
 | VPC Endpoints (3 per student) | ~$7.30/region/month per endpoint | 30 min ≈ $0.007 |
 | EC2 t3.micro | ~$9.50/month | 30 min ≈ $0.005 |
-| CloudWatch Logs | ~$0.50/GB stored | Minimal (~$0.01) |
+| CloudWatch Logs (if enabled) | ~$0.50/GB stored | Minimal (~$0.01) |
 | **Total per Student/Region** | | **~$0.04** |
 
 For 100 students × 3 Regions = **~$12 total lab cost** (30 minutes).
@@ -469,7 +469,7 @@ For 100 students × 3 Regions = **~$12 total lab cost** (30 minutes).
 
 For issues or improvements:
 1. Review CloudFormation events in AWS Console
-2. Check CloudWatch Logs for errors
+2. Check CloudWatch Logs for errors (if enabled)
 3. Verify AWS CLI credentials: `aws sts get-caller-identity`
 4. Consult AWS Support (if using AWS Support Plan)
 
