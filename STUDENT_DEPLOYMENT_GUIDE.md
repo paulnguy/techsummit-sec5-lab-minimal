@@ -80,13 +80,13 @@ Your instructor provides: `nfw-student-min.yaml`
 **Location**: Same repository/folder where you found these instructions
 
 **File Contents**: Contains all the CloudFormation resources needed:
-- Student VPC (10.1.0.0/16)
-- Subnet in AZ-a (10.1.1.0/24)
-- Route Table connected to Firewall
-- 3 SSM VPC Endpoints (for secure access)
-- EC2 t3.micro test instance
-- IAM role with SSM permissions
-- Security groups
+- Student VPC (10.1.0.0/16) with 2 subnets for bidirectional inspection
+- Protected Subnet (10.1.1.0/24) with EC2 instance
+- Firewall Subnet (10.1.2.0/24) with firewall endpoint association
+- EC2 Instance Connect (EIC) Endpoint for browser-based SSH access
+- Internet Gateway for egress + IGW edge routes for return traffic inspection
+- EC2 t3.micro test instance (curl, dig, wget pre-installed)
+- Security groups for EIC and instance communication
 
 ---
 
@@ -170,13 +170,14 @@ aws cloudformation list-stack-resources \
 
 # Should show:
 # - StudentVpc
-# - StudentSubnet
-# - StudentRouteTable
-# - FirewallEndpointAssociation
-# - SsmEndpoint (3 of these)
-# - StudentTestInstance
-# - InstanceSecurityGroup
-# - SsmInstanceRole
+# - ProtectedSubnet (10.1.1.0/24)
+# - FirewallSubnet (10.1.2.0/24)
+# - Firewall Endpoint Association
+# - Internet Gateway
+# - Route Tables (Protected, Firewall, IGW Edge)
+# - EIC Endpoint
+# - EC2 Instance
+# - Security Groups (Instance, EIC)
 ```
 
 ### 5c. Get Your EC2 Instance ID
@@ -215,15 +216,17 @@ aws ec2 describe-instance-status \
 
 ## 🔐 Step 6: Access Your Lab Instance
 
-### Option A: Via AWS Console (Easiest for Beginners)
+### Option A: Via EC2 Instance Connect (EIC) - Recommended
 
 1. **Open AWS Console** → Sign in with your student account
-2. **Go to**: Systems Manager → Fleet Manager → Nodes
+2. **Go to**: EC2 → Instances
 3. **Find your instance**: Look for `nfw-lab-student-001-instance` (with your Student ID)
-4. **Click**: Select instance → **Start Session** button
-5. **Result**: Browser-based terminal opens (no SSH keys needed!)
+4. **Click**: Select instance → **Connect** button (top right)
+5. **Go to**: **EC2 Instance Connect** tab
+6. **Click**: **Connect** button
+7. **Result**: Browser-based terminal opens (no SSH keys needed!)
 
-### Option B: Via AWS CLI
+### Option B: Via Systems Manager Session Manager (Alternative)
 
 ```bash
 # Start a Session Manager session to your instance
@@ -236,31 +239,46 @@ aws ssm start-session \
 # You're now connected to your EC2 instance!
 ```
 
+### Why Two Methods?
+
+- **EIC**: Browser-based, faster connection, uses EC2 Instance Connect Endpoint
+- **Session Manager**: Alternative method, requires SSM role (both enable secure access)
+- **Both bypass the firewall** (SSH port 22 goes directly via EIC/SSM, not inspected)
+
 ---
 
 ## 🧪 Step 7: Run Lab Exercises
 
 Once connected to your instance, try these commands:
 
-### Exercise 1: DNS Query
+### About Bidirectional Inspection
+
+Your traffic is inspected in BOTH directions:
+- **Outbound**: EC2 instance → Firewall → Internet Gateway → Internet
+- **Return**: Internet → Internet Gateway → Firewall (via IGW edge route table) → EC2 instance
+
+The firewall evaluates rules on outbound traffic (curl/dig requests) AND return responses (HTTP success, DNS replies).
+
+### Exercise 1: DNS Query (UDP 53 - Allowed)
 ```bash
-# Query Google's DNS servers - this goes through the firewall
+# Query Google's DNS servers - this OUTBOUND goes through the firewall
 dig @8.8.8.8 amazon.com
 
 # Expected output: Query successful (shows amazon.com IP addresses)
-# Firewall is monitoring this traffic!
+# Both the request (outbound) and response (return) are inspected!
 ```
 
-### Exercise 2: HTTPS Connectivity Test
+### Exercise 2: HTTPS Connectivity Test (TCP 443 - Allowed)
 ```bash
 # Test HTTPS to Google
 curl -I https://www.google.com
 
 # Expected output: HTTP/2 200 OK (or similar)
 # Shows successful HTTPS connection through firewall
+# Return traffic is also inspected via IGW edge route table
 ```
 
-### Exercise 3: HTTP Test
+### Exercise 3: HTTP Test (TCP 80 - Allowed)
 ```bash
 # Test HTTP to example.com
 curl -I http://example.com
@@ -268,12 +286,31 @@ curl -I http://example.com
 # Expected output: HTTP/1.1 200 OK
 ```
 
-### Exercise 4: Check Instance Metadata
+### Exercise 4: ICMP Test (Ping - Allowed)
+```bash
+# Test ICMP (ping)
+ping -c 3 8.8.8.8
+
+# Expected output: Ping replies from 8.8.8.8
+# ICMP is allowed by the firewall
+```
+
+### Exercise 5: Test Blocked Traffic (Port 3306 - Blocked)
+```bash
+# Test connection to a blocked port (MySQL)
+timeout 3 curl telnet://10.0.0.1:3306 2>&1 || echo "Connection blocked (expected)"
+
+# Expected: Connection timeout or rejection
+# This port is blocked by the firewall's denial rules
+```
+
+### Exercise 6: Check Instance Metadata
 ```bash
 # Verify your instance can reach AWS metadata service
 curl http://169.254.169.254/latest/meta-data/
 
 # Shows instance metadata is accessible
+# Note: Metadata requests bypass the firewall (not routed to firewall)
 ```
 
 ---
@@ -291,7 +328,7 @@ aws logs tail /aws/network-firewall/alert \
   --follow \
   --region ${REGION}
 
-# View flow logs (all traffic)
+# View flow logs (all traffic, bidirectional)
 aws logs tail /aws/network-firewall/flow \
   --follow \
   --region ${REGION}
@@ -330,13 +367,14 @@ echo "Stack deleted successfully!"
 ```
 
 **What Gets Deleted**:
-- Your VPC and subnet
+- Your VPC and subnets
 - Network interfaces
-- Route tables
+- Route tables (including firewall and IGW edge routes)
+- Internet Gateway
 - EC2 instance
+- EIC Endpoint
 - Security groups
-- IAM role
-- All CloudWatch endpoints
+- All endpoint associations
 
 **What Stays** (Instructor's Resources):
 - Shared Network Firewall (used by other students)
@@ -415,9 +453,9 @@ Student 003: Stack nfw-lab-student-003 created ✓
 
 ## 🆘 Troubleshooting
 
-### Issue: Instance Won't Connect via Session Manager
+### Issue: EC2 Instance Connect Won't Connect
 
-**Cause**: EC2 instance still initializing
+**Cause**: Instance still initializing or EIC endpoint not ready
 
 **Solution**:
 ```bash
@@ -426,6 +464,13 @@ Student 003: Stack nfw-lab-student-003 created ✓
 aws ec2 describe-instance-status --instance-ids ${INSTANCE_ID} --region ${REGION}
 
 # Wait for Status Checks: 2/2 passed
+
+# Verify EIC endpoint exists and is available
+aws ec2 describe-instance-connect-endpoints \
+  --region ${REGION} \
+  --query 'InstanceConnectEndpoints[*].[InstanceConnectEndpointId,State]'
+
+# Should show: State = available
 ```
 
 ### Issue: "FirewallArn is invalid"
@@ -500,7 +545,14 @@ aws cloudformation list-stack-resources --stack-name ${STACK_NAME} --region ${RE
 
 ### Connect
 ```bash
+# Method 1: EC2 Instance Connect (Recommended)
+# Use AWS Console: EC2 → Instances → Select instance → Connect → EC2 Instance Connect
+
+# Method 2: AWS CLI with EIC
 INSTANCE_ID=$(aws cloudformation describe-stacks --stack-name ${STACK_NAME} --region ${REGION} --query 'Stacks[0].Outputs[?OutputKey==`TestInstanceId`].OutputValue' --output text)
+aws ec2-instance-connect open-tunnel --instance-id ${INSTANCE_ID} --region ${REGION}
+
+# Method 3: Session Manager (Alternative)
 aws ssm start-session --target ${INSTANCE_ID} --region ${REGION}
 ```
 
@@ -523,7 +575,10 @@ After completing this lab, you understand:
 ✅ VPC Endpoint Associations (shared firewall access)  
 ✅ Multi-account AWS deployments  
 ✅ CloudFormation stack automation  
-✅ AWS Session Manager (secure shell-less access)  
+✅ EC2 Instance Connect (browser-based secure access)  
+✅ AWS Session Manager (alternative secure shell-less access)  
+✅ Bidirectional firewall inspection (outbound + return traffic)  
+✅ IGW edge route tables for return traffic inspection  
 ✅ VPC security and network isolation  
 ✅ Optional CloudWatch monitoring of traffic  
 ✅ How to name resources uniquely across 300+ students  
@@ -533,15 +588,21 @@ After completing this lab, you understand:
 ## 📞 Getting Help
 
 **Problem**: Template won't deploy  
-**Solution**: Check syntax in nfw-student-min.yaml, verify FirewallArn
+**Solution**: Check syntax in nfw-student-min.yaml, verify FirewallArn format and region
 
-**Problem**: Instance won't connect  
-**Solution**: Wait 3 minutes, check instance status checks = 2/2
+**Problem**: Instance won't connect via EIC  
+**Solution**: Wait 3 minutes, check EIC endpoint status = available
+
+**Problem**: Firewall tests fail (curl/dig hang or timeout)  
+**Solution**: Verify route tables point to firewall endpoint, check firewall rule group is attached
+
+**Problem**: All traffic blocked  
+**Solution**: Check protected route table has 0.0.0.0/0 → firewall endpoint route
 
 **Problem**: CloudWatch logs empty (logging enabled)  
 **Solution**: Wait 1-2 minutes for logs to appear, verify traffic flowing through firewall
 
-**Contact**: Your instructor (provide stack name and region)
+**Contact**: Your instructor (provide stack name, region, and error message)
 
 ---
 
@@ -553,9 +614,10 @@ After completing this lab, you understand:
 - [ ] Ran CloudFormation deploy command
 - [ ] Stack shows CREATE_COMPLETE
 - [ ] EC2 instance status = running (2/2 checks passed)
-- [ ] Connected via Session Manager
-- [ ] Ran lab exercises (dig, curl)
-- [ ] (Optional) Viewed CloudWatch logs
+- [ ] Connected via EC2 Instance Connect Endpoint (or Session Manager)
+- [ ] Ran lab exercises (dig, curl, ping)
+- [ ] Tested both allowed (HTTP/HTTPS/DNS) and blocked traffic
+- [ ] (Optional) Viewed CloudWatch logs for bidirectional inspection
 - [ ] Cleaned up stack when done
 
 **You're ready to begin!** 🚀

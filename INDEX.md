@@ -23,8 +23,9 @@ techsummit-sec5-lab-minimal/
 │   ├── nfw-student-min.yaml (8.8 KB)
 │   │   └─ CloudFormation template for per-student VPC + EC2
 │   │     • Deploy via CloudFormation StackSets (service-managed)
-│   │     • Creates VPC, EC2, SSM endpoints, Firewall endpoint association
-│   │     • 12 resources, 7 outputs, 299 lines
+│   │     • Creates VPC (2 subnets), EC2, EIC endpoint, IGW, Firewall association
+│   │     • Bidirectional inspection: IGW edge routes for return traffic
+│   │     • 15 resources, 10 outputs, 366 lines
 │   │
 │   └── lab-cleanup.sh (8.1 KB) 🔧 EXECUTABLE
 │       └─ Bash cleanup script for resource removal
@@ -36,13 +37,14 @@ techsummit-sec5-lab-minimal/
 ├── 📚 PRIMARY DOCUMENTATION
 │   ├── README.md (24 KB) ⭐ START HERE
 │   │   └─ Complete lab guide with step-by-step deployment
-│   │     • Lab overview and architecture (5 sections)
-│   │     • 3 ASCII architecture diagrams
-│   │     • Deployment guide (prerequisites, steps, verification)
-│   │     • Student lab exercises with example commands
-│   │     • Troubleshooting (6 common issues + solutions)
-│   │     • Security considerations, cost estimation, references
-│   │     • 514 lines of comprehensive documentation
+│   │     • Lab overview with bidirectional inspection architecture
+│   │     • Updated ASCII diagrams showing EIC endpoint and IGW edge routes
+│   │     • Multi-Region deployment guide (us-east-1, eu-west-2, ap-southeast-1)
+│   │     • EC2 Instance Connect access instructions
+│   │     • Lab exercises (curl, dig, ping commands)
+│   │     • Enhanced troubleshooting (EIC endpoint, route tables, firewall rules)
+│   │     • Security considerations and cost estimation
+│   │     • 574 lines of updated comprehensive documentation
 │   │
 │   └── QUICK_START.md (7.2 KB)
 │       └─ Executive summary and quick reference

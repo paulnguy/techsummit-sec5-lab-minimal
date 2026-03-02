@@ -10,27 +10,34 @@ This package contains everything needed to deploy a scalable, production-ready A
 
 ### Deployment Templates (CloudFormation)
 
-**1. nfw-instructor.yaml** (155 lines)
+**1. nfw-instructor.yaml** (231 lines)
 - Instructor shared Network Firewall per account per region
-- Single-AZ firewall VPC with subnet, IGW, route table
-- Network Firewall (rule groups optional)
-- Optional logging (enable post-deploy)
-- 4 outputs for cross-stack integration
+- Firewall VPC (10.0.0.0/16) with subnet (10.0.1.0/24) in AZ-a
+- Internet Gateway for egress routing
+- Network Firewall with AllowInternetTrafficRuleGroup (HTTP/HTTPS/DNS/ICMP)
+- FirewallPolicy with stateful rules
+- Optional logging (CloudWatch Logs, enable post-deploy)
+- 4 outputs for cross-stack integration (FirewallArn, FirewallId, etc.)
 - **Regions**: us-east-1, eu-west-2, ap-southeast-1
 - **Deployment**: Once per account per region
 - **Quota Impact**: 1 firewall per region (default quota: 5)
 
-**2. nfw-student-min.yaml** (299 lines)
-- Per-student VPC with subnet (AZ-aligned)
-- VPC Endpoint Association to shared firewall
-- Default route (0.0.0.0/0) → firewall endpoint
-- 3 SSM VPC endpoints (ssm, ec2messages, ssmmessages)
-- EC2 t3.micro instance with SSM-only access
-- Security groups for instances and endpoints
-- IAM roles and instance profiles
-- 7 outputs for deployment validation
+**2. nfw-student-min.yaml** (366 lines)
+- Per-student isolated VPC with bidirectional firewall inspection
+- **Network Architecture**:
+  - Protected Subnet (10.1.1.0/24): EC2 instance with private IP only
+  - Firewall Subnet (10.1.2.0/24): Firewall endpoint association
+  - Route Table: Protected → 0.0.0.0/0 → Firewall Endpoint
+  - Route Table: Firewall → 0.0.0.0/0 → Internet Gateway
+  - **IGW Edge Route Table**: Return traffic 10.1.1.0/24 → Firewall Endpoint
+- VPC Endpoint Association to shared instructor firewall
+- EC2 Instance Connect (EIC) Endpoint for browser-based SSH access
+- EC2 t3.micro instance with curl, dig, wget pre-installed
+- Internet Gateway for egress + return traffic inspection
+- Security groups for EIC endpoint and instance communication
+- 10 CloudFormation outputs for deployment validation
 - **Deployment**: Via CloudFormation StackSets (service-managed)
-- **Quota Impact**: 1 VPC endpoint association per student (quota: 300/firewall)
+- **Quota Impact**: 1 VPC endpoint association per student (quota: 300/firewall), 1 EIC endpoint per student
 
 ### Automation & Cleanup
 
@@ -49,20 +56,22 @@ This package contains everything needed to deploy a scalable, production-ready A
 
 ### Documentation
 
-**4. README.md** (514 lines)
+**4. README.md** (574 lines)
 - Complete lab overview and key features
-- **3 ASCII Architecture Diagrams**:
+- **Updated ASCII Architecture Diagrams**:
   - AWS Organizations hierarchy (management + accounts)
-  - Per-region per-account infrastructure details
-  - Traffic flow diagram (DNS query → Firewall → CloudWatch)
-- Step-by-step deployment guide
-- Prerequisites checklist
-- Multi-region/multi-account deployment instructions
-- Student lab exercises (DNS tests, HTTPS connectivity, log viewing)
-- Comprehensive troubleshooting guide
-- Security considerations and best practices
-- Cost estimation ($0.04 per student per region per 30 min)
-- References to official AWS documentation
+  - Per-region infrastructure with EIC endpoints and bidirectional routing
+  - Outbound traffic flow (EC2 → Firewall → IGW → Internet)
+  - Return traffic flow (Internet → IGW → Firewall → EC2 via IGW edge routes)
+- Step-by-step deployment guide for instructor and student stacks
+- Prerequisites checklist for multi-region/multi-account setup
+- Detailed CloudFormation and StackSet deployment instructions
+- Student lab exercises (curl, dig, ping, ICMP testing)
+- EC2 Instance Connect endpoint access instructions
+- **Enhanced troubleshooting guide** (EIC endpoint issues, route table validation, firewall rule verification)
+- Security considerations (bidirectional inspection, firewall bypass for SSH)
+- Cost estimation and performance metrics
+- References to AWS documentation
 
 **5. VALIDATION_REPORT.md**
 - Detailed code quality analysis

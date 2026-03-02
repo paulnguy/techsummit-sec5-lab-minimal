@@ -2,16 +2,17 @@
 
 ## Overview
 
-This lab demonstrates a **scalable, multi-account AWS Network Firewall deployment** designed for instructor-led training with minimal infrastructure footprint. It showcases how to deploy a shared Network Firewall that serves multiple student accounts via VPC Endpoint Associations, with centralized control and optional logging.
+This lab demonstrates a **scalable, multi-account AWS Network Firewall deployment** designed for instructor-led training with minimal infrastructure footprint. It showcases how to deploy a shared Network Firewall that serves multiple student accounts via VPC Endpoint Associations, with bidirectional traffic inspection and browser-based access.
 
 ### Key Features
 
-- **Shared Infrastructure**: One Network Firewall per Region per account, serving multiple students via VPC Endpoint Associations
-- **No EC2 Quota Issues**: Uses efficient VPC endpoint architecture instead of individual endpoints per student
-- **Secure Access**: Session Manager for instance access (no SSH keys, no public IPs required)
+- **Shared Firewall Inspection**: One Network Firewall per Region serves multiple students via VPC Endpoint Associations
+- **Bidirectional Inspection**: IGW edge route tables ensure return traffic is also inspected
+- **Browser-Based Access**: EC2 Instance Connect Endpoint for secure, keyless console access
 - **Multi-Region**: Deployable across us-east-1, eu-west-2, ap-southeast-1
 - **Automated Cleanup**: Scripted teardown of all resources
 - **30-Minute Deployment**: Fully operational lab in under 30 minutes
+- **Scales to 300+ Students**: Supports 300+ VPC associations per firewall per region
 
 ---
 
@@ -80,46 +81,88 @@ This lab demonstrates a **scalable, multi-account AWS Network Firewall deploymen
 │  │  ┌─────────────────────────────────────────────────────────────┐     │ │
 │  │  │  Student VPC (10.1.0.0/16) - Availability Zone A            │   │ │
 │  │  │                                                             │   │ │
-│  │  │  ┌──────────────────────────────────────────────────────┐   │   │ │
-│  │  │  │  Student Subnet (10.1.1.0/24)                        │   │   │ │
-│  │  │  │                                                      │   │   │ │
-│  │  │  │  ┌────────────────────────────────────────────────┐  │   │   │ │
-│  │  │  │  │  Route Table                                   │  │   │   │ │
-│  │  │  │  │  0.0.0.0/0 ──► VPC Endpoint Association (FW)   │  │   │   │ │
-│  │  │  │  └────────────────────────────────────────────────┘  │   │   │ │
-│  │  │  │                                                      │   │   │ │
-│  │  │  │  ┌──────────────┐                    ┌───────────┐   │   │   │ │
-│  │  │  │  │  EC2 Test    │                    │  SSM VPC  │   │   │   │ │
-│  │  │  │  │  Instance    │◄──────────────────►│  Endpoints│   │   │   │ │
-│  │  │  │  │  (t3.micro)  │  Session Manager   │  - ssm    │   │   │   │ │
-│  │  │  │  │              │                    │  - ec2msg │   │   │   │ │
-│  │  │  │  └──────────────┘                    │  - ssmmsg │   │   │   │ │
-│  │  │  │                                      └───────────┘   │   │   │ │
-│  │  │  └──────────────────────────────────────────────────────┘   │   │ │
+│  │  │  ┌─────────────────────────────┐    ┌──────────────────┐   │   │ │
+│  │  │  │ Protected Subnet (10.1.1/24)│    │ Firewall Subnet  │   │   │ │
+│  │  │  │                             │    │  (10.1.2/24)     │   │   │ │
+│  │  │  │ Route Table:                │    │                  │   │   │ │
+│  │  │  │ 0.0.0.0/0 → vpce-firewall   │    │  Firewall        │   │   │ │
+│  │  │  │                             │    │  Endpoint Assoc. │   │   │ │
+│  │  │  │ ┌──────────────────────┐    │    │                  │   │   │ │
+│  │  │  │ │ EC2 Test Instance    │    │    │  (Link to shared │   │   │ │
+│  │  │  │ │ (t3.micro private IP)│    │    │   firewall)      │   │   │ │
+│  │  │  │ │                      │    │    │                  │   │   │ │
+│  │  │  │ │ Pre-installed:       │    │    │ IGW Route Table: │   │   │ │
+│  │  │  │ │ - curl               │    │    │ 10.1.1/24        │   │   │ │
+│  │  │  │ │ - dig                │    │    │ → vpce-firewall  │   │   │ │
+│  │  │  │ │ - wget               │    │    │ (return traffic) │   │   │ │
+│  │  │  │ └──────────────────────┘    │    │                  │   │   │ │
+│  │  │  │                             │    │                  │   │   │ │
+│  │  │  │ ┌─────────────────────┐     │    │                  │   │   │ │
+│  │  │  │ │ EIC Endpoint        │     │    │                  │   │   │ │
+│  │  │  │ │ (browser SSH access)│     │    │                  │   │   │ │
+│  │  │  │ └─────────────────────┘     │    │                  │   │   │ │
+│  │  │  └─────────────────────────────┘    └──────────────────┘   │   │ │
 │  │  │                                                             │   │ │
 │  │  │  VPC Endpoint Association to Shared Network Firewall        │   │ │
 │  │  │  (Connected to Instructor's Firewall Endpoint)              │   │ │
 │  │  │                                                             │   │ │
+│  │  │  Internet Gateway:                                          │   │ │
+│  │  │  └─► Provides egress for firewall                           │   │ │
+│  │  │  └─► Return traffic routed back through firewall            │   │ │
+│  │  │      via IGW edge route table                               │   │ │
+│  │  │                                                             │   │ │
 │  │  └─────────────────────────────────────────────────────────┘   │   │
 │  │                                                                    │ │
 │  │  [Multiple student accounts can be deployed with identical setup]  │ │
-│  │                                                                      │ │
-│  └──────────────────────────────────────────────────────────────────────┘ │
+│  │                                                                      │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
 │                                                                            │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Traffic Flow
+### Traffic Flow (Bidirectional Inspection)
 
+**Outbound (EC2 to Internet):**
 ```
-Student EC2           DNS Query                Shared Network Firewall
-   │                         │                           │
-   ├──► dig @8.8.8.8 ────────┤                           │
-   │    amazon.com           │◄───────────────────────── ┤
-   │                         │  VPC Endpoint Association │
-   │                         │  (Stateful Inspection)    │
-   │                         │  Action: DEFAULT          │
-   │◄────── Response ────────┤                           │
+EC2 Test Instance (10.1.1.x)
+   ↓ curl http://example.com
+Protected Subnet Route Table (0.0.0.0/0)
+   ↓ routes to vpce-firewall
+Shared Network Firewall
+   ↓ evaluates rules (HTTP/HTTPS/DNS/ICMP pass, others drop)
+Firewall Route Table (0.0.0.0/0)
+   ↓ routes to IGW
+Internet Gateway
+   ↓
+Internet (Public IP conversion, NAT)
+```
+
+**Return Traffic (Internet to EC2):**
+```
+Internet → Response packets
+   ↓
+Internet Gateway
+   ↓
+IGW Edge Route Table (10.1.1.0/24 pattern)
+   ↓ routes return traffic back through vpce-firewall
+Shared Network Firewall
+   ↓ evaluates stateful rules (connection already established)
+Firewall Subnet Route Table
+   ↓
+Protected Subnet
+   ↓
+EC2 Instance (receives response)
+```
+
+**SSH Access (via EIC Endpoint - not inspected by firewall):**
+```
+AWS Console → "Connect" button
+   ↓
+EC2 Instance Connect Endpoint
+   ↓ (uses port 22, direct path)
+EC2 Instance Terminal
+   ↓
+curl/dig testing
 ```
 
 ---
@@ -134,9 +177,9 @@ Deployed once **per account per Region** (management overhead = minimal).
 - **Firewall VPC** (10.0.0.0/16, single-AZ)
   - Subnet in AZ-a for firewall placement
   - Route to Internet Gateway
-  - Network Firewall
-- **Rule Groups**: Optional, add post-deploy if needed
-- **Logging**: Optional, enable after deployment if needed
+  - Network Firewall with default allow rules
+- **Default Rule Group**: Allows HTTP/HTTPS/DNS/ICMP (can be customized post-deploy)
+- **Logging**: Optional, enable after deployment via CloudWatch
 
 **Parameters:**
 - `FirewallName`: Name of the firewall (default: `nfw-lab`)
@@ -145,6 +188,7 @@ Deployed once **per account per Region** (management overhead = minimal).
 
 **Outputs:**
 - `FirewallArn`: Used by student templates
+- `FirewallId`: Firewall identifier
 - `FirewallAzName`: Availability Zone hosting the firewall endpoint
 
 ---
@@ -155,26 +199,41 @@ Deployed via **CloudFormation StackSets** (service-managed) across target accoun
 
 **Resources Created per Student:**
 - **Student VPC** (10.1.0.0/16, configurable)
-  - Single-AZ subnet (AZ-a) aligned with firewall
-  - Route to firewall via VPC Endpoint Association
-- **VPC Endpoint Association**: Connects to shared firewall
-- **SSM Interface Endpoints** (no public IPs needed):
-  - `com.amazonaws.region.ssm`
-  - `com.amazonaws.region.ec2messages`
-  - `com.amazonaws.region.ssmmessages`
+  - **Protected Subnet** (10.1.1.0/24): EC2 instance located here
+  - **Firewall Subnet** (10.1.2.0/24): Firewall endpoint association located here
+  - Single-AZ (AZ-a) placement aligned with firewall
+  
+- **Route Tables for Bidirectional Inspection**:
+  - **Protected Route Table**: 0.0.0.0/0 → Firewall Endpoint
+  - **Firewall Route Table**: 0.0.0.0/0 → Internet Gateway
+  - **IGW Edge Route Table**: 10.1.1.0/24 → Firewall Endpoint (return traffic)
+
+- **VPC Endpoint Association**: Connects to shared firewall in instructor account
+
 - **EC2 Test Instance** (t3.micro):
+  - Private IP only (no public IP)
   - Pre-installed: `curl`, `dig`, `wget`
-  - Accessible via Session Manager only
+  - Located in protected subnet
+
+- **EC2 Instance Connect (EIC) Endpoint**:
+  - Browser-based SSH access via AWS Console
+  - No SSH keys required
+  - Security group allows SSH (port 22) to EC2 instance
+
+- **Internet Gateway**: Provides egress path for firewall traffic
 
 **Parameters:**
-- `FirewallArn`: ARN from instructor stack
+- `FirewallArn`: ARN from instructor stack (required)
 - `LabName`: Lab identifier (default: `nfw-lab-student`)
 - `StudentVpcCIDR`: Student VPC CIDR (default: `10.1.0.0/16`)
-- `InstanceType`: EC2 type (default: `t3.micro`)
+- `ProtectedSubnetCIDR`: EC2 subnet (default: `10.1.1.0/24`)
+- `FirewallSubnetCIDR`: Firewall endpoint subnet (default: `10.1.2.0/24`)
+- `InstanceType`: EC2 type (default: `t3.micro`, options: t3.small, t3.medium)
 
 **Scalability:**
 - Default quota: 300 VPC Endpoint Associations per Region per firewall
 - Supports 300+ students per Region on a single firewall
+- Each student gets isolated VPC with bidirectional inspection
 
 ---
 
@@ -337,31 +396,64 @@ aws ec2 describe-network-interfaces \
 
 ### Accessing Your Lab Instance
 
+**Method 1: EC2 Instance Connect Endpoint (Recommended)**
+
 1. **Login to AWS Console** in your assigned student account
-2. Navigate to **Systems Manager** → **Fleet Manager** → **Nodes**
+2. Navigate to **EC2** → **Instances**
 3. Select your instance (e.g., `nfw-lab-student-instance`)
-4. Click **Start session** (no SSH keys needed!)
+4. Click the **Connect** button (top right)
+5. Select **EC2 Instance Connect** tab
+6. Click **Connect** to open browser-based terminal
 
-### Lab Exercise: Trigger Network Firewall Rules
+No SSH keys, no public IPs required—direct browser-based access!
 
-Once connected to your EC2 instance via Session Manager:
+**Method 2: AWS Systems Manager Session Manager (Alternative)**
+
+1. Navigate to **Systems Manager** → **Session Manager** → **Start session**
+2. Select your instance
+3. Click **Start session**
+
+### Lab Exercise: Test Firewall Rules
+
+Once connected to your EC2 instance via the browser terminal:
 
 ```bash
-# Test DNS query (UDP/53)
+# Test DNS query (UDP 53) - should PASS
 dig @8.8.8.8 amazon.com
 
-# Test HTTPS connectivity
+# Test HTTPS (TCP 443) - should PASS
 curl -I https://www.google.com
 
-# Test HTTP connectivity
+# Test HTTP (TCP 80) - should PASS
 curl -I http://example.com
+
+# Test ICMP (ping) - should PASS
+ping -c 3 8.8.8.8
+
+# Test blocked traffic (e.g., port 3306/MySQL) - should FAIL with timeout
+timeout 3 curl telnet://10.0.0.1:3306 2>&1 || echo "Connection blocked (expected)"
 ```
+
+**Expected Results:**
+- HTTP, HTTPS, DNS, ICMP: ✅ **Success** (firewall allows)
+- Other ports/protocols: ❌ **Timeout** (firewall blocks)
 
 ### Viewing Firewall Logs (Optional)
 
-Logging is not enabled by default in the instructor template. If you enable
-CloudWatch logging post-deployment, you can use `aws logs tail` to view
-ALERT and FLOW entries.
+Logging is not enabled by default in the instructor template. To enable CloudWatch logging post-deployment:
+
+```bash
+# Enable ALERT and FLOW logging
+aws network-firewall update-firewall-policy \
+  --update-token <token-from-describe> \
+  --firewall-policy-arn arn:aws:network-firewall:us-east-1:ACCOUNT:firewall-policy/nfw-lab-policy \
+  --region us-east-1
+```
+
+Then view logs:
+```bash
+aws logs tail /aws/network-firewall/nfw-lab --follow
+```
 
 ---
 
@@ -404,18 +496,61 @@ export OU_ID="ou-xxxx-yyyyyyyy"  # Or use ACCOUNT_IDS instead
 - Ensure firewall is deployed in **AZ-a** (same as student subnet)
 - Check firewall status: `aws ec2 describe-network-interfaces --filters "Name=description,Values=*firewall*"`
 
-### Issue: Session Manager Won't Connect
+### Issue: EC2 Instance Connect Endpoint Won't Connect
 
-**Cause**: Missing SSM endpoints or IAM role issue.
+**Cause**: Security group misconfiguration or endpoint not ready.
 
 **Solution**:
-1. Verify SSM endpoints exist in student VPC:
+1. Verify EIC endpoint is created and in "available" state:
    ```bash
-   aws ec2 describe-vpc-endpoints --region us-east-1 \
+   aws ec2 describe-instance-connect-endpoints \
+     --region us-east-1 \
      --filters "Name=vpc-id,Values=vpc-xxxx"
    ```
-2. Verify instance IAM role has `AmazonSSMManagedInstanceCore` policy
-3. Check instance health: Systems Manager → Fleet Manager → Nodes
+2. Verify instance security group allows inbound SSH (port 22) from EIC security group:
+   ```bash
+   aws ec2 describe-security-groups \
+     --group-ids sg-xxxx \
+     --region us-east-1
+   ```
+3. Verify EIC endpoint is in protected subnet (10.1.1.0/24)
+4. Check browser console for permission errors (may need IAM policy for ec2-instance-connect:OpenTerminal)
+
+### Issue: Firewall Tests Fail or All Traffic Blocked
+
+**Cause**: Route table misconfiguration or firewall rules too restrictive.
+
+**Solution**:
+1. Verify routes in protected subnet:
+   ```bash
+   aws ec2 describe-route-tables \
+     --filters "Name=association.subnet-id,Values=subnet-xxxx" \
+     --region us-east-1 \
+     --query 'RouteTables[0].Routes'
+   ```
+   Should show: `0.0.0.0/0 → vpce-xxxx` (firewall endpoint)
+
+2. Verify routes in firewall subnet:
+   ```bash
+   aws ec2 describe-route-tables \
+     --filters "Name=route-table-id,Values=rtb-xxxx" \
+     --region us-east-1 \
+     --query 'Routes'
+   ```
+   Should show: `0.0.0.0/0 → igw-xxxx` (Internet Gateway)
+
+3. Verify IGW edge route table exists and is associated:
+   ```bash
+   aws ec2 describe-route-tables \
+     --filters "Name=tag:Name,Values=*igw-rt*" \
+     --region us-east-1
+   ```
+
+4. Check firewall rule group is attached:
+   ```bash
+   aws network-firewall describe-firewall-policy \
+     --firewall-policy-arn arn:aws:network-firewall:us-east-1:ACCOUNT:firewall-policy/nfw-lab-policy
+   ```
 
 ### Issue: CloudWatch Logs Not Appearing (If Enabled)
 
@@ -434,11 +569,12 @@ export OU_ID="ou-xxxx-yyyyyyyy"  # Or use ACCOUNT_IDS instead
 
 ## Security Considerations
 
-- **No Inbound Access**: Instances have no inbound rules; only Session Manager access
-- **No Public IPs**: All communication through VPC endpoints (no Internet-facing services)
-- **Minimal Permissions**: IAM roles grant only SSM permissions
+- **No Inbound Access**: Instances have no inbound rules except from EIC endpoint
+- **No Public IPs**: All communication through VPC endpoints and internal routing
+- **Minimal Permissions**: IAM role only needs ec2-instance-connect permissions for EIC
 - **Ephemeral Lab**: Resources are temporary; logging retention is configurable if enabled
-- **Stateful Inspection**: Network Firewall performs deep packet inspection on all traffic
+- **Bidirectional Inspection**: Network Firewall performs deep packet inspection on outbound AND return traffic
+- **Firewall Bypass**: SSH access via EIC endpoint bypasses the firewall (intentional for management)
 
 ---
 

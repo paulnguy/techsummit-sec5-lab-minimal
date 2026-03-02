@@ -11,10 +11,11 @@ Your AWS Network Firewall multi-account lab is **complete and ready to deploy**.
    - Optional logging (enable post-deploy)
    - Deploy once per region in instructor account
 
-2. **nfw-student-min.yaml** (299 lines)
+2. **nfw-student-min.yaml** (366 lines)
    - Per-student VPC with EC2 instance
    - VPC Endpoint Association to shared firewall
-   - SSM interface endpoints (no public IPs)
+   - EC2 Instance Connect (EIC) Endpoint for browser-based SSH
+   - IGW edge routing for return traffic inspection
    - Deploy via CloudFormation StackSets
 
 3. **lab-cleanup.sh** (257 lines)
@@ -46,7 +47,8 @@ Your AWS Network Firewall multi-account lab is **complete and ready to deploy**.
 ## Key Highlights
 
 ✓ **Scalable**: 300+ students per firewall via VPC Endpoint Associations  
-✓ **Secure**: No SSH keys, public IPs, or inbound access (Session Manager only)  
+✓ **Secure**: Browser-based SSH via EC2 Instance Connect (no SSH keys, no public IPs)  
+✓ **Bidirectional Inspection**: IGW edge routes ensure return traffic is inspected  
 ✓ **Multi-Region**: us-east-1, eu-west-2, ap-southeast-1  
 ✓ **Fast**: Full deployment in ~30 minutes  
 ✓ **Validated**: All syntax, structure, and logic verified  
@@ -81,7 +83,9 @@ aws cloudformation create-stack-set \
 
 ### Phase 3: Students Access Labs
 ```
-AWS Console → Systems Manager → Fleet Manager → Select Instance → Start Session
+AWS Console → EC2 → Instances → Select → Connect → EC2 Instance Connect
+(or)
+AWS Console → Systems Manager → Session Manager (alternative)
 ```
 
 ### Phase 4: Cleanup (when done)
@@ -110,11 +114,17 @@ export OU_ID="ou-xxxx-yyyyyyyy"
       │  └─ Optional logging (enable post-deploy) │
         │                                           │
         │  Student Account (Lab 2)                  │
-        │  ├─ Student VPC + Subnet (AZ-a)          │
-        │  ├─ EC2 Instance (t3.micro)              │
-        │  ├─ SSM Endpoints (3x)                   │
+        │  ├─ Student VPC + 2 Subnets (AZ-a)       │
+        │  ├─ Protected Subnet: EC2 Instance        │
+        │  ├─ Firewall Subnet: Endpoint Association│
+        │  ├─ EC2 Instance Connect (browser SSH)   │
+        │  ├─ Internet Gateway (for firewall exit) │
+        │  ├─ Route Tables:                         │
+        │  │  └─ Protected: 0.0.0/0 → FW Endpoint  │
+        │  │  └─ Firewall: 0.0.0/0 → IGW           │
+        │  │  └─ IGW Edge: 10.1.1/24 → FW Endpoint│
+        │  │     (return traffic inspection)        │
         │  └─ Firewall Endpoint Association        │
-        │      └─ Route 0.0.0/0 → FW Endpoint      │
         │                                           │
         │  [Same for Student Account 3, etc...]    │
         └──────────────────────────────────────────┘
@@ -148,12 +158,12 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| nfw-instructor.yaml | ✓ VALID | 10 resources, proper YAML syntax, all outputs defined |
-| nfw-student-min.yaml | ✓ VALID | 12 resources, VPC Endpoint Association configured correctly |
+| nfw-instructor.yaml | ✓ VALID | 11 resources, proper YAML syntax, all outputs defined |
+| nfw-student-min.yaml | ✓ VALID | 15 resources, bidirectional inspection with IGW routing |
 | lab-cleanup.sh | ✓ VALID | Bash syntax verified, error handling implemented |
-| README.md | ✓ VALID | 514 lines, 3 ASCII diagrams, complete guide |
-| Architecture | ✓ CORRECT | Matches mission requirements exactly |
-| Security | ✓ VERIFIED | No public IPs, Session Manager-only access |
+| README.md | ✓ VALID | 574 lines, updated architecture diagrams, complete guide |
+| Architecture | ✓ CORRECT | Matches mission requirements with bidirectional inspection |
+| Security | ✓ VERIFIED | No public IPs, EIC endpoint + optional Session Manager access |
 
 ---
 
@@ -193,11 +203,14 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 
 ## Troubleshooting Quick Links
 
-**Session Manager won't connect?**
-→ See README.md → Troubleshooting → "Session Manager Won't Connect"
+**EC2 Instance Connect won't connect?**
+→ See README.md → Troubleshooting → "EC2 Instance Connect Endpoint Won't Connect"
 
 **VPC Endpoint Association fails?**
 → See README.md → Troubleshooting → "VPC Endpoint Association Fails"
+
+**Firewall tests fail (curl/dig)?**
+→ See README.md → Troubleshooting → "Firewall Tests Fail or All Traffic Blocked"
 
 **CloudWatch Logs empty (if enabled)?**
 → See README.md → Troubleshooting → "CloudWatch Logs Not Appearing"

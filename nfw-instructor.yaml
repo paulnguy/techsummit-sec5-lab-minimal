@@ -99,6 +99,80 @@ Resources:
   # ============================================================================
   # Network Firewall Configuration
   # ============================================================================
+  AllowInternetTrafficRuleGroup:
+    Type: AWS::NetworkFirewall::RuleGroup
+    Properties:
+      RuleGroupName: !Sub '${FirewallName}-allow-internet'
+      Type: STATEFUL
+      Capacity: 100
+      RuleGroup:
+        RulesSource:
+          StatefulRules:
+            # Allow HTTP (TCP 80)
+            - Action: PASS
+              Header:
+                Protocol: TCP
+                Source: ANY
+                SourcePort: ANY
+                Destination: ANY
+                DestinationPort: '80'
+                Direction: FORWARD
+              RuleOptions:
+                - Keyword: sid
+                  Settings: ['1']
+            # Allow HTTPS (TCP 443)
+            - Action: PASS
+              Header:
+                Protocol: TCP
+                Source: ANY
+                SourcePort: ANY
+                Destination: ANY
+                DestinationPort: '443'
+                Direction: FORWARD
+              RuleOptions:
+                - Keyword: sid
+                  Settings: ['2']
+            # Allow DNS (UDP 53)
+            - Action: PASS
+              Header:
+                Protocol: UDP
+                Source: ANY
+                SourcePort: ANY
+                Destination: ANY
+                DestinationPort: '53'
+                Direction: FORWARD
+              RuleOptions:
+                - Keyword: sid
+                  Settings: ['3']
+            # Allow DNS (TCP 53)
+            - Action: PASS
+              Header:
+                Protocol: TCP
+                Source: ANY
+                SourcePort: ANY
+                Destination: ANY
+                DestinationPort: '53'
+                Direction: FORWARD
+              RuleOptions:
+                - Keyword: sid
+                  Settings: ['4']
+            # Allow ICMP (ping)
+            - Action: PASS
+              Header:
+                Protocol: ICMP
+                Source: ANY
+                SourcePort: ANY
+                Destination: ANY
+                DestinationPort: ANY
+                Direction: FORWARD
+              RuleOptions:
+                - Keyword: sid
+                  Settings: ['5']
+      Description: Allow HTTP, HTTPS, DNS, and ICMP traffic for lab testing
+      Tags:
+        - Key: Name
+          Value: !Sub '${FirewallName}-allow-internet'
+
   FirewallPolicy:
     Type: AWS::NetworkFirewall::FirewallPolicy
     Properties:
@@ -108,6 +182,8 @@ Resources:
           - 'aws:forward_to_sfe'
         StatelessFragmentDefaultActions:
           - 'aws:forward_to_sfe'
+        StatefulRuleGroupReferences:
+          - ResourceArn: !GetAtt AllowInternetTrafficRuleGroup.RuleGroupArn
       Description: Firewall policy for lab
       Tags:
         - Key: Name

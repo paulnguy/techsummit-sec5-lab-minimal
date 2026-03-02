@@ -1,10 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  Minimal per-student VPC + EC2 + SSM endpoints + NFW endpoint association (single-AZ).
+  Minimal per-student VPC + EC2 + NFW endpoint association (single-AZ).
   Deployed via CloudFormation StackSets into target accounts & Regions.
-  Creates one mini-lab per student: VPC, subnet (AZ-a), RT, VPC Endpoint Association
-  to shared firewall, default route → firewall endpoint, SSM VPC endpoints, and an EC2
-  instance with SSM-only access.
+  Creates: VPC with 2 subnets (protected + firewall), EC2 in protected subnet,
+  firewall endpoint association, EC2 Instance Connect Endpoint, IGW for internet.
+  Traffic flow (bidirectional inspection): EC2 → Firewall Endpoint → IGW → Internet
+  Return traffic: Internet → IGW → Firewall Endpoint → EC2.
+  Access: AWS Console → EIC Endpoint → EC2 (browser-based SSH).
 
 Parameters:
   LabName:
@@ -25,11 +27,17 @@ Parameters:
     AllowedPattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}$'
     Description: CIDR block for student VPC
 
-  StudentSubnetCIDR:
+  ProtectedSubnetCIDR:
     Type: String
     Default: 10.1.1.0/24
     AllowedPattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}$'
-    Description: CIDR block for student subnet
+    Description: CIDR block for protected subnet (EC2 instance)
+
+  FirewallSubnetCIDR:
+    Type: String
+    Default: 10.1.2.0/24
+    AllowedPattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}$'
+    Description: CIDR block for firewall subnet (endpoint association)
 
   InstanceType:
     Type: String
@@ -52,21 +60,22 @@ Metadata:
         Parameters:
           - LabName
           - StudentVpcCIDR
-          - StudentSubnetCIDR
+          - ProtectedSubnetCIDR
+          - FirewallSubnetCIDR
       - Label:
           default: EC2 Configuration
         Parameters:
           - InstanceType
 
 Mappings:
-  # Amazon Linux 2023 AMI IDs (update if needed for your region)
+  # Amazon Linux 2023 AMI IDs by region (always use latest AL2023)
   RegionMap:
     us-east-1:
       AMI: ami-0c02fb55956c7d316
     eu-west-2:
-      AMI: ami-0d71ea30463e0ff8d
+      AMI: ami-0ba0c1a358147d1a8
     ap-southeast-1:
-      AMI: ami-0dc5785603ad4ff54
+      AMI: ami-0ac0e4288aa341886
 
 Resources:
   # ============================================================================
@@ -82,31 +91,73 @@ Resources:
         - Key: Name
           Value: !Sub '${LabName}-vpc'
 
-  StudentSubnet:
+  ProtectedSubnet:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref StudentVpc
-      CidrBlock: !Ref StudentSubnetCIDR
+      CidrBlock: !Ref ProtectedSubnetCIDR
       AvailabilityZone: !Select
         - 0
         - !GetAZs ''
       Tags:
         - Key: Name
-          Value: !Sub '${LabName}-subnet-az-a'
+          Value: !Sub '${LabName}-protected-subnet-az-a'
 
-  StudentRouteTable:
+  FirewallSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref StudentVpc
+      CidrBlock: !Ref FirewallSubnetCIDR
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: !Sub '${LabName}-firewall-subnet-az-a'
+
+  ProtectedRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref StudentVpc
       Tags:
         - Key: Name
-          Value: !Sub '${LabName}-rt'
+          Value: !Sub '${LabName}-protected-rt'
 
-  SubnetRouteTableAssociation:
+  FirewallRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref StudentVpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${LabName}-firewall-rt'
+
+  ProtectedSubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref StudentSubnet
-      RouteTableId: !Ref StudentRouteTable
+      SubnetId: !Ref ProtectedSubnet
+      RouteTableId: !Ref ProtectedRouteTable
+
+  FirewallSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref FirewallSubnet
+      RouteTableId: !Ref FirewallRouteTable
+
+  # ============================================================================
+  # Internet Gateway (enables public subnet for firewall endpoint internet access)
+  # ============================================================================
+  StudentInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${LabName}-igw'
+
+  AttachIGW:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref StudentVpc
+      InternetGatewayId: !Ref StudentInternetGateway
 
   # ============================================================================
   # VPC Endpoint Association to Shared Network Firewall
@@ -115,100 +166,54 @@ Resources:
     Type: AWS::NetworkFirewall::VpcEndpointAssociation
     Properties:
       FirewallArn: !Ref FirewallArn
-      SubnetId: !Ref StudentSubnet
+      VpcId: !Ref StudentVpc
+      SubnetMapping:
+        SubnetId: !Ref FirewallSubnet
 
-  # Create route to firewall endpoint (after association is complete)
-  RouteToFirewall:
+  # Route from protected subnet (EC2) to firewall endpoint for inspection
+  ProtectedRouteToFirewall:
     Type: AWS::EC2::Route
     DependsOn: FirewallEndpointAssociation
     Properties:
-      RouteTableId: !Ref StudentRouteTable
+      RouteTableId: !Ref ProtectedRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       VpcEndpointId: !GetAtt FirewallEndpointAssociation.EndpointId
 
-  # ============================================================================
-  # VPC Endpoints for SSM (no NAT, no public IPs)
-  # ============================================================================
-  # Security Group for VPC Endpoints
-  VpcEndpointSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  # Route from firewall subnet to IGW for internet access
+  FirewallRouteToIGW:
+    Type: AWS::EC2::Route
+    DependsOn: AttachIGW
     Properties:
-      GroupName: !Sub '${LabName}-vpce-sg'
-      GroupDescription: Security group for SSM VPC endpoints
+      RouteTableId: !Ref FirewallRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref StudentInternetGateway
+
+  # ============================================================================
+  # IGW Edge Route Table (for return traffic inspection)
+  # ============================================================================
+  IGWRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
       VpcId: !Ref StudentVpc
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: !Ref StudentVpcCIDR
-          Description: HTTPS for SSM endpoints
       Tags:
         - Key: Name
-          Value: !Sub '${LabName}-vpce-sg'
+          Value: !Sub '${LabName}-igw-rt'
 
-  # SSM VPC Endpoint
-  SsmEndpoint:
-    Type: AWS::EC2::VpcEndpoint
+  # Route return traffic from IGW back through firewall for inspection
+  IGWRouteToFirewall:
+    Type: AWS::EC2::Route
+    DependsOn: FirewallEndpointAssociation
     Properties:
-      VpcId: !Ref StudentVpc
-      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssm'
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: true
-      SubnetIds:
-        - !Ref StudentSubnet
-      SecurityGroupIds:
-        - !Ref VpcEndpointSecurityGroup
+      RouteTableId: !Ref IGWRouteTable
+      DestinationCidrBlock: !Ref ProtectedSubnetCIDR
+      VpcEndpointId: !GetAtt FirewallEndpointAssociation.EndpointId
 
-  # EC2Messages VPC Endpoint
-  Ec2MessagesEndpoint:
-    Type: AWS::EC2::VpcEndpoint
+  # Associate IGW with route table for return traffic inspection
+  IGWRouteTableAssociation:
+    Type: AWS::EC2::GatewayRouteTableAssociation
     Properties:
-      VpcId: !Ref StudentVpc
-      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ec2messages'
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: true
-      SubnetIds:
-        - !Ref StudentSubnet
-      SecurityGroupIds:
-        - !Ref VpcEndpointSecurityGroup
-
-  # SSMMessages VPC Endpoint
-  SsmMessagesEndpoint:
-    Type: AWS::EC2::VpcEndpoint
-    Properties:
-      VpcId: !Ref StudentVpc
-      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssmmessages'
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: true
-      SubnetIds:
-        - !Ref StudentSubnet
-      SecurityGroupIds:
-        - !Ref VpcEndpointSecurityGroup
-
-  # ============================================================================
-  # IAM Role and Instance Profile for EC2 (SSM access only)
-  # ============================================================================
-  SsmInstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: 'sts:AssumeRole'
-      ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
-      Tags:
-        - Key: Name
-          Value: !Sub '${LabName}-ssm-role'
-
-  SsmInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Roles:
-        - !Ref SsmInstanceRole
+      GatewayId: !Ref StudentInternetGateway
+      RouteTableId: !Ref IGWRouteTable
 
   # ============================================================================
   # Security Group for Student EC2 Instance
@@ -228,7 +233,52 @@ Resources:
           Value: !Sub '${LabName}-sg'
 
   # ============================================================================
-  # Student Test Instance (t3.micro with SSM-only access)
+  # EC2 Instance Connect Endpoint (browser-based SSH access)
+  # ============================================================================
+  EICEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${LabName}-eic-sg'
+      GroupDescription: Security group for EC2 Instance Connect Endpoint
+      VpcId: !Ref StudentVpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${LabName}-eic-sg'
+
+  # Security group rules (separate to avoid circular dependency)
+  InstanceSecurityGroupIngressFromEIC:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref InstanceSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !Ref EICEndpointSecurityGroup
+      Description: SSH from EC2 Instance Connect Endpoint
+
+  EICEndpointSecurityGroupEgressToInstance:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref EICEndpointSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      DestinationSecurityGroupId: !Ref InstanceSecurityGroup
+      Description: SSH to EC2 instance
+
+  EICEndpoint:
+    Type: AWS::EC2::InstanceConnectEndpoint
+    Properties:
+      SubnetId: !Ref ProtectedSubnet
+      SecurityGroupIds:
+        - !Ref EICEndpointSecurityGroup
+      PreserveClientIp: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${LabName}-eic-endpoint'
+
+  # ============================================================================
+  # Student Test Instance (t3.micro, private IP only, EIC access)
   # ============================================================================
   StudentTestInstance:
     Type: AWS::EC2::Instance
@@ -238,8 +288,7 @@ Resources:
         - !Ref 'AWS::Region'
         - AMI
       InstanceType: !Ref InstanceType
-      IamInstanceProfile: !Ref SsmInstanceProfile
-      SubnetId: !Ref StudentSubnet
+      SubnetId: !Ref ProtectedSubnet
       SecurityGroupIds:
         - !Ref InstanceSecurityGroup
       EbsOptimized: false
@@ -261,11 +310,17 @@ Outputs:
     Export:
       Name: !Sub '${LabName}-vpc-id'
 
-  StudentSubnetId:
-    Description: ID of the student subnet
-    Value: !Ref StudentSubnet
+  ProtectedSubnetId:
+    Description: ID of the protected subnet (EC2 instance)
+    Value: !Ref ProtectedSubnet
     Export:
-      Name: !Sub '${LabName}-subnet-id'
+      Name: !Sub '${LabName}-protected-subnet-id'
+
+  FirewallSubnetId:
+    Description: ID of the firewall subnet (endpoint association)
+    Value: !Ref FirewallSubnet
+    Export:
+      Name: !Sub '${LabName}-firewall-subnet-id'
 
   FirewallEndpointId:
     Description: ID of the firewall endpoint in this VPC
@@ -285,14 +340,26 @@ Outputs:
     Export:
       Name: !Sub '${LabName}-instance-private-ip'
 
-  SsmEndpointId:
-    Description: ID of the SSM VPC endpoint
-    Value: !Ref SsmEndpoint
+  EICEndpointId:
+    Description: EC2 Instance Connect Endpoint ID (use for browser-based SSH)
+    Value: !Ref EICEndpoint
     Export:
-      Name: !Sub '${LabName}-ssm-endpoint-id'
+      Name: !Sub '${LabName}-eic-endpoint-id'
 
-  VpcEndpointSecurityGroupId:
-    Description: Security group ID for VPC endpoints
-    Value: !Ref VpcEndpointSecurityGroup
+  InstanceSecurityGroupId:
+    Description: Security group ID for the instance
+    Value: !Ref InstanceSecurityGroup
     Export:
-      Name: !Sub '${LabName}-vpce-sg-id'
+      Name: !Sub '${LabName}-sg-id'
+
+  InternetGatewayId:
+    Description: Internet Gateway ID for public internet access
+    Value: !Ref StudentInternetGateway
+    Export:
+      Name: !Sub '${LabName}-igw-id'
+
+  IGWRouteTableId:
+    Description: IGW edge route table ID (for return traffic inspection)
+    Value: !Ref IGWRouteTable
+    Export:
+      Name: !Sub '${LabName}-igw-rt-id'

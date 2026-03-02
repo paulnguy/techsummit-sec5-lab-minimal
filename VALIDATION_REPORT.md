@@ -39,23 +39,26 @@
   - Mappings: RegionMap for AMI lookup (us-east-1, eu-west-2, ap-southeast-1) ✓
   - Resources:
     - AWS::EC2::VPC (StudentVpc) ✓
-    - AWS::EC2::Subnet (StudentSubnet) with AZ-a alignment ✓
-    - AWS::EC2::RouteTable (StudentRouteTable) ✓
+    - AWS::EC2::Subnet (ProtectedSubnet for EC2, FirewallSubnet for endpoint) ✓
+    - AWS::EC2::RouteTable (ProtectedRouteTable, FirewallRouteTable, IGWRouteTable) ✓
     - AWS::NetworkFirewall::VpcEndpointAssociation (FirewallEndpointAssociation) ✓
-    - AWS::EC2::Route (RouteToFirewall) with VpcEndpointId ✓
-    - AWS::EC2::SecurityGroup (VpcEndpointSecurityGroup, InstanceSecurityGroup) ✓
-    - AWS::EC2::VpcEndpoint (SsmEndpoint, Ec2MessagesEndpoint, SsmMessagesEndpoint) ✓
-    - AWS::IAM::Role (SsmInstanceRole with AmazonSSMManagedInstanceCore) ✓
-    - AWS::IAM::InstanceProfile (SsmInstanceProfile) ✓
+    - AWS::EC2::Route (Protected→Firewall, Firewall→IGW, IGW Edge→Firewall) ✓
+    - AWS::EC2::InternetGateway (StudentInternetGateway) ✓
+    - AWS::EC2::GatewayRouteTableAssociation (IGW edge routing) ✓
+    - AWS::EC2::InstanceConnectEndpoint (EICEndpoint for browser SSH) ✓
+    - AWS::EC2::SecurityGroup (EICEndpointSecurityGroup, InstanceSecurityGroup) ✓
     - AWS::EC2::Instance (StudentTestInstance with UserData) ✓
-  - Outputs: 7 outputs (StudentVpcId, TestInstanceId, FirewallEndpointId, etc.) ✓
+  - Outputs: 10 outputs (VpcId, SubnetIds, InstanceId, FirewallEndpointId, EICEndpointId, IGWRouteTableId, etc.) ✓
+  - IGW Edge Route Table: Bidirectional inspection via return traffic routing ✓
   - Balanced brackets/braces: ✓
 
 **Deployment Notes**:
 - Deploy via CloudFormation StackSets (service-managed)
 - Requires CAPABILITY_NAMED_IAM
 - FirewallArn parameter must be provided per Region (region-specific firewalls)
-- Students can be in 300+ count per firewall (quota limit)
+- Supports 300+ students per firewall (VPC Endpoint Association quota limit)
+- Bidirectional inspection: Outbound traffic AND return traffic routed through firewall
+- EC2 instance accessible via EC2 Instance Connect Endpoint (browser-based SSH)
 - EC2 instance includes curl, dig, wget via UserData
 
 ---
@@ -104,8 +107,10 @@
      - StackSet creation with parameter overrides ✓
      - Verification commands ✓
   5. **Student Lab Instructions** - Hands-on exercises:
-     - Session Manager access ✓
-     - Lab exercises (DNS queries, HTTPS tests) ✓
+     - EC2 Instance Connect (EIC) Endpoint access (browser-based SSH) ✓
+     - Alternative: Session Manager access ✓
+     - Lab exercises (DNS queries, HTTPS tests, ICMP ping) ✓
+     - Bidirectional inspection explanation ✓
     - Optional CloudWatch log viewing ✓
   6. **Cleanup Instructions** - Complete/partial cleanup ✓
   7. **Troubleshooting** - Common issues and solutions ✓
@@ -115,8 +120,9 @@
 
 **Architecture Diagrams**:
 - ✓ AWS Organizations hierarchy diagram
-- ✓ Per-region per-account infrastructure diagram with AZ alignment
-- ✓ Traffic flow sequence diagram
+- ✓ Per-region per-account infrastructure with EIC endpoints and bidirectional routing
+- ✓ Outbound traffic flow (EC2 → Firewall → IGW)
+- ✓ Return traffic flow (IGW → Firewall via edge routes → EC2)
 - ✓ All diagrams use ASCII format (no external dependencies)
 
 ---
@@ -143,19 +149,26 @@
 - ✓ CloudFormation functions correctly formatted
 - ✓ RegionMap for AMI lookup (supports 3 required regions)
 - ✓ VPC Endpoint Association uses FirewallArn parameter correctly
-- ✓ Route to firewall uses GetAtt for EndpointId from association ✓
-- ✓ Security group properly restricts VPC endpoint access to HTTPS (443)
-- ✓ IAM role uses AWS managed policy (AmazonSSMManagedInstanceCore)
+- ✓ Route configurations for bidirectional inspection:
+  - Protected Subnet RT: 0.0.0.0/0 → Firewall Endpoint
+  - Firewall Subnet RT: 0.0.0.0/0 → Internet Gateway
+  - IGW Edge Route Table: 10.1.1.0/24 (protected subnet) → Firewall Endpoint
+- ✓ EC2 Instance Connect (EIC) Endpoint configured for browser-based SSH
+- ✓ Security groups properly configured:
+  - EIC endpoint SG: Unrestricted egress to instance (port 22)
+  - Instance SG: SSH ingress from EIC endpoint SG
+  - Instance SG: All outbound traffic allowed (firewall inspects via route)
+- ✓ Internet Gateway configured for egress + return traffic
 - ✓ UserData script has proper bash initialization
 - ✓ All resources have descriptive tags
-- ✓ DependsOn properly set between association and route
+- ✓ DependsOn properly set between association and routes
 
 **Critical Features**:
-- ✓ Single AZ-a aligned with firewall (requirement for association)
-- ✓ 3 SSM endpoints (ssm, ec2messages, ssmmessages) configured
+- ✓ Two-subnet architecture: Protected (EC2) + Firewall (Endpoint Association) in single AZ-a
+- ✓ IGW edge routing enables return traffic inspection (bidirectional)
 - ✓ VPC Endpoint Association configured before route creation
-- ✓ Instance has no inbound security group rules (Session Manager only)
-- ✓ Proper IAM role for SSM access
+- ✓ EIC Endpoint provides browser-based SSH access (no SSH keys)
+- ✓ Instance has no inbound rules requiring SSH keys (EIC bypass)
 - ✓ UserData installs network diagnostic tools (curl, dig, wget)
 
 ### lab-cleanup.sh
@@ -200,10 +213,16 @@
 
 ### Post-Deployment Validation
 - [ ] All student VPCs created in target accounts
-- [ ] SSM Fleet Manager shows EC2 instances as online
-- [ ] Student can access instance via Session Manager
+- [ ] Student EC2 instances are running (status = running, 2/2 checks passed)
+- [ ] EIC Endpoints created and available in each student VPC
+- [ ] Firewall Endpoint Associations configured and active
+- [ ] Student can access instance via EC2 Instance Connect Endpoint
+- [ ] Student can also access via Session Manager (optional fallback)
+- [ ] Test curl/dig commands work from EC2 instance (firewall allows traffic)
+- [ ] Test blocked traffic times out (firewall blocks non-allowed traffic)
 - [ ] (Optional) CloudWatch log groups populated with firewall rules
-- [ ] (Optional) DNS queries trigger ALERT logs in CloudWatch
+- [ ] (Optional) Outbound DNS queries trigger ALERT logs in CloudWatch
+- [ ] (Optional) Return traffic also logged in CloudWatch (bidirectional inspection)
 
 ### Cleanup
 - [ ] Run lab-cleanup.sh from management account
@@ -216,18 +235,22 @@
 
 ✓ **Network Security**:
 - No public IPs assigned to student instances
-- No inbound security group rules (Session Manager access only)
-- All traffic routes through Network Firewall for inspection
-- Stateful rules track connections
+- No inbound security group rules except from EIC endpoint
+- All outbound traffic routes through Network Firewall for inspection
+- Return traffic routes through firewall via IGW edge route tables (bidirectional inspection)
+- Stateful rules track bidirectional connections
 
 ✓ **Access Control**:
-- IAM roles follow least-privilege principle
-- SSM managed policies used (no custom policies)
-- No SSH keys or console access required
+- IAM roles minimal (not required for EIC endpoint access)
+- EIC endpoint provides browser-based SSH (no SSH keys required)
+- No SSH keys or console access required (EIC endpoint only)
+- Alternative: Session Manager access also supported
 
 ✓ **Data Protection**:
 - VPC endpoints private (no internet exposure)
+- EIC endpoint operates within VPC (internal routing)
 - Optional logging can be enabled post-deploy
+- Firewall SSH access via EIC bypasses network inspection (intentional for management)
 
 ✓ **Compliance**:
 - All resources tagged for cost allocation
@@ -240,11 +263,12 @@
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| Deployment Time | ~15-20 min | Includes firewall provisioning |
+| Deployment Time | ~15-20 min | Includes firewall + EC2 provisioning |
 | Students Per Firewall | 300+ | Default quota for Endpoint Associations |
 | Firewall Failover | Cross-AZ capable | Can add multiple AZ endpoints |
-| CloudWatch Log Frequency | Optional | Only if logging is enabled |
-| Session Manager Latency | <2 seconds | Standard AWS service latency |
+| EIC Endpoint Connect | <2 seconds | Browser-based SSH, no keys |
+| CloudWatch Log Latency | ~1-2 seconds | If logging is enabled |
+| Bidirectional Inspection | Real-time | Both outbound and return traffic inspected |
 
 ---
 
@@ -262,10 +286,10 @@
 
 | File | Type | Lines | Status |
 |------|------|-------|--------|
-| nfw-instructor.yaml | CloudFormation YAML | 216 | ✓ Complete & Valid |
-| nfw-student-min.yaml | CloudFormation YAML | 299 | ✓ Complete & Valid |
+| nfw-instructor.yaml | CloudFormation YAML | 231 | ✓ Complete & Valid |
+| nfw-student-min.yaml | CloudFormation YAML | 366 | ✓ Complete & Valid (EIC + IGW routing) |
 | lab-cleanup.sh | Bash Script | 257 | ✓ Complete & Valid |
-| README.md | Markdown | 514 | ✓ Complete with Diagrams |
+| README.md | Markdown | 574 | ✓ Updated with EIC diagrams |
 | aws-lab-min-mission.md | Mission Guide | 1202 | Reference Document |
 
 ---
