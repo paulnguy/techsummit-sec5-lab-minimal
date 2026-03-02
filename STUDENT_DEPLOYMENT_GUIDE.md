@@ -347,7 +347,146 @@ aws logs filter-log-events \
 
 ---
 
-## 🗑️ Step 9: Clean Up (When Lab is Done)
+## �️ Step 9: Adding Infoblox PMR to AWS Network Firewall
+
+### Overview
+
+Infoblox Persistent Malware Reputation (PMR) is a threat intelligence rule group available through the AWS Marketplace. It provides real-time malware and malicious domain detection for your Network Firewall.
+
+### High-Level Procedure
+
+#### Step 1: Subscribe to Infoblox PMR Rule Group
+
+1. Go to **AWS Marketplace** in your AWS Account
+2. Search for **"Infoblox Persistent Malware Reputation"**
+3. Click **Continue to Subscribe**
+4. Review pricing and terms
+5. Click **Subscribe** to activate the rule group
+
+**Note**: Subscription must be completed in the same region where your firewall is deployed (us-east-1, eu-west-2, or ap-southeast-1).
+
+#### Step 2: Add Rule Group to Firewall Policy
+
+Once subscribed, the rule group becomes available in your region. Add it to your firewall policy:
+
+```bash
+FIREWALL_POLICY_ARN="arn:aws:network-firewall:us-east-1:ACCOUNT:firewall-policy/nfw-lab-policy"
+INFOBLOX_RULE_GROUP_ARN="arn:aws:network-firewall:us-east-1:ACCOUNT:stateful-rulegroup/infoblox-pmr"
+
+# Update firewall policy to include Infoblox rule group
+aws network-firewall update-firewall-policy \
+  --firewall-policy-arn ${FIREWALL_POLICY_ARN} \
+  --firewall-policy '{
+    "StatefulRuleGroupReferences": [
+      {
+        "ResourceArn": "arn:aws:network-firewall:us-east-1:ACCOUNT:stateful-rulegroup/AllowInternetTraffic",
+        "Priority": 1
+      },
+      {
+        "ResourceArn": "'${INFOBLOX_RULE_GROUP_ARN}'",
+        "Priority": 2
+      }
+    ]
+  }' \
+  --region us-east-1
+```
+
+**Rule Group Placement**:
+- **Stateless Rule Groups**: Added under Stateless rule group references with priority ordering
+- **Stateful Rule Groups**: Added under Stateful rule group references (Infoblox PMR is stateful)
+
+**Priority Considerations**:
+- Lower priority = evaluated first
+- Recommended: Custom rules (priority 1), Infoblox PMR (priority 2)
+- Action: Allow/Alert/Drop based on rule group configuration
+
+#### Step 3: Verify Firewall is Using Updated Policy
+
+```bash
+# Check firewall is linked to the updated policy
+aws network-firewall describe-firewall \
+  --firewall-arn arn:aws:network-firewall:us-east-1:ACCOUNT:firewall/nfw-lab \
+  --query 'Firewall.FirewallPolicyArn' \
+  --region us-east-1
+
+# Verify rule groups attached
+aws network-firewall describe-firewall-policy \
+  --firewall-policy-arn ${FIREWALL_POLICY_ARN} \
+  --query 'FirewallPolicy.StatefulRuleGroupReferences' \
+  --region us-east-1
+```
+
+#### Step 4: Confirm Traffic Routing
+
+Ensure your traffic still routes through the firewall endpoints:
+
+```bash
+# Verify protected route table still points to firewall endpoint
+aws ec2 describe-route-tables \
+  --filters "Name=vpc-id,Values=vpc-0c7d56103ca094b4f" "Name=tag:Name,Values=*protected*" \
+  --query 'RouteTables[0].Routes[*].[DestinationCidrBlock,VpcEndpointId]' \
+  --region us-east-1
+
+# Expected: 0.0.0.0/0 → vpce-xxxxxxxx
+```
+
+#### Step 5: (Optional) Enable Logging for Infoblox Detections
+
+Enable CloudWatch logging to monitor Infoblox PMR alerts and block events:
+
+```bash
+# Enable ALERT logging for malware/threat detections
+aws network-firewall update-logging-configuration \
+  --firewall-arn arn:aws:network-firewall:us-east-1:ACCOUNT:firewall/nfw-lab \
+  --logging-configuration LoggingConfig='{ 
+    "LogDestinationConfigs": [
+      {
+        "LogDestination": {
+          "CloudWatchLogs": {
+            "LogGroup": "/aws/network-firewall/nfw-lab"
+          }
+        },
+        "LogDestinationType": "CLOUDWATCH_LOGS",
+        "LogType": "ALERT"
+      }
+    ]
+  }' \
+  --region us-east-1
+
+# View Infoblox threat detections
+aws logs tail /aws/network-firewall/nfw-lab --follow --region us-east-1
+```
+
+**Log Interpretation**:
+- **Action: DROP**: Blocked by Infoblox PMR
+- **Action: ALERT**: Detected but allowed (logged for review)
+
+### Testing Infoblox PMR
+
+After enabling, test detection:
+
+```bash
+# Inside your EC2 instance, try to access a known malicious domain
+# Note: Use a safe test domain from Infoblox or your security team
+
+curl -v http://malware-test-domain.com
+
+# Check CloudWatch Logs for Infoblox ALERT entries
+aws logs tail /aws/network-firewall/nfw-lab --follow
+```
+
+### Troubleshooting
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Rule group not appearing | Not subscribed in region | Subscribe to PMR in AWS Marketplace for your region |
+| Policy update fails | Invalid ARN format | Verify firewall-policy and rule-group ARNs are correct |
+| No Infoblox alerts in logs | Logging not enabled | Enable CloudWatch logging in Step 5 |
+| Traffic not blocked | Rule priority too high | Check priority order (lower = evaluated first) |
+
+---
+
+## 🗑️ Step 10: Clean Up (When Lab is Done)
 
 ### Delete Your Stack
 
