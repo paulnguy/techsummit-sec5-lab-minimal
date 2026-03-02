@@ -22,9 +22,8 @@
 
 ### Option A: Use Your Student Username (Recommended)
 ```bash
-STUDENT_ID="student001"           # Replace with your actual student username/ID
+STUDENT_ID="student001"           # Replace with your actual student username/ID/Okta login
 STUDENT_ID="jsmith"               # Example: your name or initials
-STUDENT_ID="user-123456"          # Example: your assigned user ID
 ```
 
 ### Option B: Use Your Email (First Part)
