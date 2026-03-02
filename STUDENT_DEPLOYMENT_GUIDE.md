@@ -26,11 +26,6 @@ STUDENT_ID="student001"           # Replace with your actual student username/ID
 STUDENT_ID="jsmith"               # Example: your name or initials
 ```
 
-### Option B: Use Your Email (First Part)
-```bash
-STUDENT_ID="john.smith"           # From john.smith@example.com
-STUDENT_ID="jsmith"               # Shortened version
-```
 
 ### naming Rules
 - Use **alphanumerics and hyphens only** (a-z, 0-9, -)

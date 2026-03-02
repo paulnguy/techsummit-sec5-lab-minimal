@@ -184,7 +184,9 @@ Resources:
           - 'aws:forward_to_sfe'
         StatefulRuleGroupReferences:
           - ResourceArn: !GetAtt AllowInternetTrafficRuleGroup.RuleGroupArn
-      Description: Firewall policy for lab
+        StatefulEngineOptions:
+          RuleOrder: DEFAULT_ACTION_ORDER
+      Description: Firewall policy for lab. Supports dynamic partner managed rules via StatefulEngineOptions.
       Tags:
         - Key: Name
           Value: !Sub '${FirewallName}-policy'
@@ -214,6 +216,12 @@ Outputs:
     Value: !Ref NetworkFirewall
     Export:
       Name: !Sub '${FirewallName}-firewall-id'
+
+  FirewallPolicyArn:
+    Description: ARN of the firewall policy (use to add partner managed rules post-deploy via AWS CLI)
+    Value: !GetAtt FirewallPolicy.FirewallPolicyArn
+    Export:
+      Name: !Sub '${FirewallName}-policy-arn'
 
   FirewallAzName:
     Description: Availability Zone where firewall is deployed
