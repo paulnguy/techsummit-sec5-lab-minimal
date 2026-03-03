@@ -55,65 +55,65 @@ This lab demonstrates a **scalable, multi-account AWS Network Firewall deploymen
 │  │  ┌────────────────────────────────────────────────────────────────┐  │  │
 │  │  │  Firewall VPC (10.0.0.0/16) - Availability Zone A              │  │  │
 │  │  │                                                                │  │  │
-│  │  │  ┌─────────────────────────┐         ┌─────────────────────┐ │ │  │
-│  │  │  │  Firewall Subnet        │         │  Internet Gateway   │ │ │  │
-│  │  │  │  10.0.1.0/24 (AZ-a)     │         │   (IGW)             │ │ │  │
-│  │  │  │                         │         │                     │ │ │  │
-│  │  │  │  ┌─────────────────┐    │         │                     │ │ │  │
-│  │  │  │  │  Network        │    │◄───────►│                     │ │ │  │
-│  │  │  │  │  Firewall       │    │  Route  │                     │ │ │  │
-│  │  │  │  │  - Endpoint     │    │  0.0.0/0│                     │ │ │  │
-│  │  │  │  │  - Optional     │    │         │                     │ │ │  │
-│  │  │  │  │    rules        │    │         │                     │ │ │  │
-│  │  │  │  └─────────────────┘    │         │                     │ │ │  │
-│  │  │  └─────────────────────────┘         └─────────────────────┘ │ │  │
-│  │  │                                                                │  │ │
-│  │  └────────────────────────────────────────────────────────────────┘  │ │
-│  │                                                                      │ │
-│  │  Optional Logging (enable post-deploy):                              │ │
-│  │  CloudWatch Logs for ALERT and FLOW                                  │ │
-│  │                                                                      │ │
-│  └──────────────────────────────────────────────────────────────────────┘ │
-│                                                                           │
-│  ┌──────────────────────────────────────────────────────────────────────┐ │
-│  │  Student Account(s)                                                  │ │
-│  │                                                                      │ │
-│  │  ┌─────────────────────────────────────────────────────────────┐     │ │
-│  │  │  Student VPC (10.1.0.0/16) - Availability Zone A            │   │ │
-│  │  │                                                             │   │ │
-│  │  │  ┌─────────────────────────────┐    ┌──────────────────┐   │   │ │
-│  │  │  │ Protected Subnet (10.1.1/24)│    │ Firewall Subnet  │   │   │ │
-│  │  │  │                             │    │  (10.1.2/24)     │   │   │ │
-│  │  │  │ Route Table:                │    │                  │   │   │ │
-│  │  │  │ 0.0.0.0/0 → vpce-firewall   │    │  Firewall        │   │   │ │
-│  │  │  │                             │    │  Endpoint Assoc. │   │   │ │
-│  │  │  │ ┌──────────────────────┐    │    │                  │   │   │ │
-│  │  │  │ │ EC2 Test Instance    │    │    │  (Link to shared │   │   │ │
-│  │  │  │ │ (t3.micro private IP)│    │    │   firewall)      │   │   │ │
-│  │  │  │ │                      │    │    │                  │   │   │ │
-│  │  │  │ │ Pre-installed:       │    │    │ IGW Route Table: │   │   │ │
-│  │  │  │ │ - curl               │    │    │ 10.1.1/24        │   │   │ │
-│  │  │  │ │ - dig                │    │    │ → vpce-firewall  │   │   │ │
-│  │  │  │ │ - wget               │    │    │ (return traffic) │   │   │ │
-│  │  │  │ └──────────────────────┘    │    │                  │   │   │ │
-│  │  │  │                             │    │                  │   │   │ │
-│  │  │  │ ┌─────────────────────┐     │    │                  │   │   │ │
-│  │  │  │ │ EIC Endpoint        │     │    │                  │   │   │ │
-│  │  │  │ │ (browser SSH access)│     │    │                  │   │   │ │
-│  │  │  │ └─────────────────────┘     │    │                  │   │   │ │
-│  │  │  └─────────────────────────────┘    └──────────────────┘   │   │ │
-│  │  │                                                             │   │ │
-│  │  │  VPC Endpoint Association to Shared Network Firewall        │   │ │
-│  │  │  (Connected to Instructor's Firewall Endpoint)              │   │ │
-│  │  │                                                             │   │ │
-│  │  │  Internet Gateway:                                          │   │ │
-│  │  │  └─► Provides egress for firewall                           │   │ │
-│  │  │  └─► Return traffic routed back through firewall            │   │ │
-│  │  │      via IGW edge route table                               │   │ │
-│  │  │                                                             │   │ │
-│  │  └─────────────────────────────────────────────────────────┘   │   │
-│  │                                                                    │ │
-│  │  [Multiple student accounts can be deployed with identical setup]  │ │
+│  │  │  ┌─────────────────────────┐         ┌─────────────────────┐   │  │  │
+│  │  │  │  Firewall Subnet        │         │  Internet Gateway   │   │  │  │
+│  │  │  │  10.0.1.0/24 (AZ-a)     │         │   (IGW)             │   │  │  │
+│  │  │  │                         │         │                     │   │  │  │
+│  │  │  │  ┌─────────────────┐    │         │                     │   │  │  │
+│  │  │  │  │  Network        │    │◄───────►│                     │   │  │  │
+│  │  │  │  │  Firewall       │    │  Route  │                     │   │  │  │
+│  │  │  │  │  - Endpoint     │    │  0.0.0/0│                     │   │  │  │
+│  │  │  │  │  - Optional     │    │         │                     │   │  │  │
+│  │  │  │  │    rules        │    │         │                     │   │  │  │
+│  │  │  │  └─────────────────┘    │         │                     │   │  │  │
+│  │  │  └─────────────────────────┘         └─────────────────────┘   │  │  │
+│  │  │                                                                │  │  │
+│  │  └────────────────────────────────────────────────────────────────┘  │  │
+│  │                                                                      │  │
+│  │  Optional Logging (enable post-deploy):                              │  │
+│  │  CloudWatch Logs for ALERT and FLOW                                  │  │
+│  │                                                                      │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  Student Account(s)                                                  │  │
+│  │                                                                      │  │
+│  │  ┌─────────────────────────────────────────────────────────────┐     │  │
+│  │  │  Student VPC (10.1.0.0/16) - Availability Zone A            │     │  │
+│  │  │                                                             │     │  │
+│  │  │  ┌─────────────────────────────┐    ┌──────────────────┐    │     │  │
+│  │  │  │ Protected Subnet (10.1.1/24)│    │ Firewall Subnet  │    │     │  │
+│  │  │  │                             │    │  (10.1.2/24)     │    │     │  │
+│  │  │  │ Route Table:                │    │                  │    │     │  │
+│  │  │  │ 0.0.0.0/0 → vpce-firewall   │    │  Firewall        │    │     │  │
+│  │  │  │                             │    │  Endpoint Assoc. │    │     │  │
+│  │  │  │ ┌──────────────────────┐    │    │                  │    │     │  │
+│  │  │  │ │ EC2 Test Instance    │    │    │  (Link to shared │    │     │  │
+│  │  │  │ │ (t3.micro private IP)│    │    │   firewall)      │    │     │  │
+│  │  │  │ │                      │    │    │                  │    │     │  │
+│  │  │  │ │ Pre-installed:       │    │    │ IGW Route Table: │    │     │  │
+│  │  │  │ │ - curl               │    │    │ 10.1.1/24        │    │     │  │
+│  │  │  │ │ - dig                │    │    │ → vpce-firewall  │    │     │  │
+│  │  │  │ │ - wget               │    │    │ (return traffic) │    │     │  │
+│  │  │  │ └──────────────────────┘    │    │                  │    │     │  │
+│  │  │  │                             │    │                  │    │     │  │
+│  │  │  │ ┌─────────────────────┐     │    │                  │    │     │  │
+│  │  │  │ │ EIC Endpoint        │     │    │                  │    │     │  │
+│  │  │  │ │ (browser SSH access)│     │    │                  │    │     │  │
+│  │  │  │ └─────────────────────┘     │    │                  │    │     │  │
+│  │  │  └─────────────────────────────┘    └──────────────────┘    │     │  │
+│  │  │                                                             │     │  │
+│  │  │  VPC Endpoint Association to Shared Network Firewall        │     │  │
+│  │  │  (Connected to Instructor's Firewall Endpoint)              │     │  │
+│  │  │                                                             │     │  │
+│  │  │  Internet Gateway:                                          │     │  │
+│  │  │  └─► Provides egress for firewall                           │     │  │
+│  │  │  └─► Return traffic routed back through firewall            │     │  │
+│  │  │      via IGW edge route table                               │     │  │
+│  │  │                                                             │     │  │
+│  │  └─────────────────────────────────────────────────────────┘   │     │
+│  │                                                                      │  │
+│  │  [Multiple student accounts can be deployed with identical setup]    │  │
 │  │                                                                      │  │
 │  └──────────────────────────────────────────────────────────────────────┘  │
 │                                                                            │
