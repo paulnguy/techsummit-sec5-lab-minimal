@@ -18,14 +18,14 @@ techsummit-sec5-lab-minimal/
 │   │   └─ CloudFormation template for shared Network Firewall infrastructure
 │   │     • Deploy once per account per region (us-east-1, eu-west-2, ap-southeast-1)
 │   │     • Creates firewall VPC and Network Firewall (logging optional)
-│   │     • 9 resources, 4 outputs, 155 lines
+│   │     • 9 resources, 5 outputs, 199 lines
 │   │
 │   ├── nfw-student-min.yaml (8.8 KB)
 │   │   └─ CloudFormation template for per-student VPC + EC2
 │   │     • Deploy via CloudFormation StackSets (service-managed)
 │   │     • Creates VPC (2 subnets), EC2, EIC endpoint, IGW, Firewall association
 │   │     • Bidirectional inspection: IGW edge routes for return traffic
-│   │     • 15 resources, 10 outputs, 366 lines
+│   │     • 15 resources, 10 outputs, 374 lines
 │   │
 │   └── lab-cleanup.sh (8.1 KB) 🔧 EXECUTABLE
 │       └─ Bash cleanup script for resource removal
@@ -44,7 +44,7 @@ techsummit-sec5-lab-minimal/
 │   │     • Lab exercises (curl, dig, ping commands)
 │   │     • Enhanced troubleshooting (EIC endpoint, route tables, firewall rules)
 │   │     • Security considerations and cost estimation
-│   │     • 574 lines of updated comprehensive documentation
+│   │     • 617 lines of updated comprehensive documentation
 │   │
 │   └── QUICK_START.md (7.2 KB)
 │       └─ Executive summary and quick reference
@@ -164,8 +164,8 @@ techsummit-sec5-lab-minimal/
    └─ Deploy to 3 regions
 
 6. VERIFY DEPLOYMENT
-   └─ Check Fleet Manager for EC2 instances
-   └─ Test Session Manager access
+   └─ Check EC2 instances are running
+   └─ Test EC2 Instance Connect access
    └─ (Optional) Verify CloudWatch logs
 
 7. RUN LAB EXERCISES
@@ -194,7 +194,7 @@ techsummit-sec5-lab-minimal/
 - VPC Endpoint Association configuration
 - Single-AZ design (AZ-aligned)
 - Network Firewall rule implementation
-- SSM endpoint configuration
+- EC2 Instance Connect endpoint configuration
 - Multi-region support
 - Quota/scalability requirements
 
@@ -203,7 +203,7 @@ techsummit-sec5-lab-minimal/
 - Access control (IAM, security groups)
 - Data protection (encryption, logs)
 - Compliance and audit trail
-- No SSH keys or public IPs
+- No SSH keys required (EIC access)
 
 ### ✓ Deployment Readiness
 - All parameters documented
@@ -222,7 +222,7 @@ techsummit-sec5-lab-minimal/
 - **Accounts**: 3+ (instructor + students)
 - **Firewall Model**: Single per region per account
 - **Student Capacity**: 300+ per firewall (VPC Endpoint Associations)
-- **Access Method**: Session Manager (no SSH keys)
+- **Access Method**: EC2 Instance Connect (browser-based)
 - **Logging**: CloudWatch (ALERT + FLOW logs)
 
 ### Components Per Region
@@ -306,7 +306,7 @@ After completing this lab, students will understand:
 - ✓ VPC Endpoint Association for shared infrastructure
 - ✓ Multi-account AWS deployments using StackSets
 - ✓ Optional firewall rules and logging
-- ✓ Serverless access patterns (Session Manager)
+- ✓ Browser-based access patterns (EC2 Instance Connect)
 - ✓ CloudWatch monitoring for security events
 
 ---

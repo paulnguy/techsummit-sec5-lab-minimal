@@ -1,13 +1,13 @@
 Ready‑to‑run lab bundle that matches your constraints:
 
 Regions: us-east-1, eu-west-2, ap-southeast-1
-Connectivity: SSM Session Manager (no NAT, no public IPs) via VPC Interface Endpoints
+Connectivity: EC2 Instance Connect Endpoint (browser SSH) with public IP egress via IGW; Session Manager is optional if enabled
 No EC2 quota checks (kept out as requested)
 
 What you get:
 
 Instructor stack (per Region/per account) – Builds the shared Network Firewall VPC (single‑AZ), policy, firewall subnet & route to IGW. Rule groups and logging are optional and can be enabled post‑deploy.
-Student StackSet template – For each student: VPC + subnet + route table, VPC Endpoint Association to your shared firewall, default route → firewall endpoint, SSM interface endpoints (ssm, ec2messages, ssmmessages) and a t3.micro test instance with SSM only.
+Student StackSet template – For each student: VPC + two subnets, VPC Endpoint Association to your shared firewall, default route → firewall endpoint, IGW edge route table for return traffic, EC2 Instance Connect Endpoint, and a t3.micro test instance with public IP for egress.
 Runbook + cleanup – Step‑by‑step instructions to deploy across 3 accounts / 3 Regions with CloudFormation StackSets (service‑managed), plus an AWS CLI cleanup script.
 
 Why this scales & fits 30 minutes
@@ -15,7 +15,7 @@ Why this scales & fits 30 minutes
 You deploy one firewall per Region per account (under the default quota of 5 per Region). Students share that firewall via VPC endpoint associations (default 300 per Region, enough for 300 learners).
 Student VPCs route 0.0.0.0/0 to the firewall endpoint (supported by AWS::EC2::Route with VpcEndpointId).
 ALERT + FLOW logging is optional and can be enabled post‑deploy if desired.,, 
-Session Manager requires only the three SSM interface endpoints (or NAT) and the SSM instance role—no SSH keys or inbound ports. 
+Session Manager is optional and only available if the instructor enables SSM endpoints and instance role. 
 VPC Endpoint Associations are the supported way to put firewall endpoints into other VPCs, as long as the firewall already has a primary endpoint in that AZ. We standardize on AZ‑a for simplicity. 
 1) Instructor stack – nfw-instructor.yaml
 
@@ -48,11 +48,13 @@ Network Firewall logging is optional and can be enabled post‑deploy if needed.
 2) Student StackSet template – nfw-student-min.yaml
 
 Deployed via CloudFormation StackSets (service‑managed) into target accounts & Regions.
-Creates one mini‑lab per student: VPC, subnet (AZ‑a), RT, VPC Endpoint Association to your shared firewall, default route → firewall endpoint, SSM VPC endpoints, and an EC2 instance with SSM only.
+Creates one mini‑lab per student: VPC, two subnets (AZ‑a), RTs, VPC Endpoint Association to your shared firewall, default route → firewall endpoint, IGW edge route table for return traffic, and an EC2 instance with public IP for egress plus EIC endpoint for access.
+
+Note: This mission document is a historical reference; any remaining SSM-only references below are legacy and not used in the current lab build.
 
 AWSTemplateFormatVersion: '2010-09-09'
 
-Description: Minimal per-student VPC + EC2 + SSM endpoints + NFW endpoint association (single-AZ)
+Description: Minimal per-student VPC + EC2 + EIC endpoint + NFW endpoint association (single-AZ)
 
 Parameters:
 
@@ -589,7 +591,7 @@ CidrIp: 0.0.0.0/0
 
 Tags: [{ Key: Name, Value: !Sub '${LabName}-vpce-sg' }]
 
-# SSM interface endpoints (no NAT, no public IPs)
+# Legacy: SSM interface endpoints (not used in current lab)
 
 VPCEssm:
 
@@ -679,7 +681,7 @@ DestinationCidrBlock: 0.0.0.0/0
 
 VpcEndpointId: !GetAtt AppVpcEndpointAssoc.EndpointId
 
-# EC2 with SSM only (no public IP; no inbound rules)
+# Legacy: EC2 with SSM only (not used in current lab)
 
 InstanceSG:
 

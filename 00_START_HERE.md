@@ -8,28 +8,28 @@ Your AWS Network Firewall multi-account lab framework is **complete, validated, 
 
 ## 📦 What Was Delivered
 
-### Deployment Templates & Scripts (769 lines)
+### Deployment Templates & Scripts (830 lines)
 ```
-nfw-instructor.yaml        215 lines  ✓ Shared Network Firewall
-nfw-student-min.yaml       298 lines  ✓ Per-student VPC + EC2
+nfw-instructor.yaml        199 lines  ✓ Shared Network Firewall
+nfw-student-min.yaml       374 lines  ✓ Per-student VPC + EC2
 lab-cleanup.sh             256 lines  ✓ Automated cleanup (executable)
                            ━━━━━━━━━
-Total Deployable Code:     769 lines
+Total Deployable Code:     830 lines
 ```
 
-### Comprehensive Documentation (2,929 lines)
+### Comprehensive Documentation (2,982 lines)
 ```
-README.md                  513 lines  ⭐ Complete deployment guide (3 ASCII diagrams)
-INDEX.md                   347 lines  ✓ File navigation & quick reference
-VALIDATION_REPORT.md       295 lines  ✓ Code analysis & security assessment
-DELIVERABLES.md            361 lines  ✓ Package contents & specifications
-QUICK_START.md             212 lines  ✓ Executive summary
-aws-lab-min-mission.md   1,201 lines  📋 Original requirements (reference)
+README.md                  617 lines  ⭐ Complete deployment guide (3 ASCII diagrams)
+INDEX.md                   349 lines  ✓ File navigation & quick reference
+VALIDATION_REPORT.md       314 lines  ✓ Code analysis & security assessment
+DELIVERABLES.md            366 lines  ✓ Package contents & specifications
+QUICK_START.md             225 lines  ✓ Executive summary
+aws-lab-min-mission.md   1,111 lines  📋 Original requirements (reference)
                         ━━━━━━━━━
-Total Documentation:     2,929 lines
+Total Documentation:     2,982 lines
 ```
 
-### Total Package: 3,698 lines of code + docs across 9 files
+### Total Package: 3,812 lines of code + docs across 9 files
 
 ---
 
@@ -59,15 +59,14 @@ Total Documentation:     2,929 lines
 - Student VPC (10.1.0.0/16) in same AZ-a
 - EC2 t3.micro instance with tools (curl, dig, wget)
 - VPC Endpoint Association to shared firewall
-- 3 SSM VPC Endpoints (no public IPs, no NAT needed)
-- IAM role with SSM permissions
+- EC2 Instance Connect Endpoint (browser-based SSH)
 - Security groups for instances and endpoints
 
 **Deployment**: Via CloudFormation StackSets (supports 300+ students)
 
 **Key features**:
 - Default route (0.0.0.0/0) → Firewall endpoint
-- Session Manager access only (no SSH keys)
+- EC2 Instance Connect access (no SSH keys)
 - Optional CloudWatch monitoring of firewall rules
 - All outputs for integration/verification
 
@@ -136,7 +135,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 ---
 
 ### ✅ 6. VALIDATION_REPORT.md (Code Analysis)
-**295 lines** | Security & quality assessment
+**314 lines** | Security & quality assessment
 
 **Covers:**
 - CloudFormation resource inventory
@@ -184,13 +183,13 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 ## 🔐 Security & Compliance
 
 ✅ **Network Security**
-- No public IPs for student instances
+- Public IPs for student egress (traffic still inspected by firewall)
 - Private subnets only
 - All traffic through Network Firewall
 - Stateful rule inspection
 
 ✅ **Access Control**
-- Session Manager only (no SSH keys)
+- EC2 Instance Connect only (no SSH keys)
 - IAM roles with least-privilege
 - AWS managed policies
 - No inbound security group rules
@@ -214,7 +213,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 | **Deployment Time** | ~20 minutes |
 | **Regions** | 3 (us-east-1, eu-west-2, ap-southeast-1) |
 | **Students Per Firewall** | 300+ (quota limit) |
-| **Session Manager Latency** | <2 seconds |
+| **EIC Endpoint Connect** | <2 seconds |
 | **CloudWatch Log Latency** | Optional (if enabled) |
 | **Cost Per Student (30 min)** | $0.04 |
 | **Cost for 100 Students** | ~$12 |
@@ -238,7 +237,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 - ✓ Matches mission guide requirements 100%
 - ✓ VPC Endpoint Association correctly implemented
 - ✓ Single-AZ design (AZ-a aligned)
-- ✓ SSM endpoints configured for private access
+- ✓ EC2 Instance Connect endpoint configured for access
 - ✓ Optional rule groups can be added post-deploy
 - ✓ Optional CloudWatch logging (if enabled)
 
@@ -273,7 +272,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 
 ### Phase 4: Validate (5 min)
 - [ ] Check Fleet Manager: instances online
-- [ ] Test Session Manager access
+- [ ] Test EC2 Instance Connect access
 - [ ] Run test lab exercise
 
 ### Phase 5: Use Lab (30 min)
@@ -293,7 +292,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 ## 🎓 Student Lab Exercises Included
 
 Students will:
-1. Access EC2 instance via Session Manager (no SSH keys)
+1. Access EC2 instance via EC2 Instance Connect (no SSH keys)
 2. Run DNS query: `dig @8.8.8.8 amazon.com`
 3. Test HTTPS: `curl -I https://www.google.com` (allowed)
 4. (Optional) Enable logging and view CloudWatch alerts
@@ -365,7 +364,7 @@ DELIVERABLES.md          # Package specification
 ## ✨ What Makes This Lab Unique
 
 ✓ **Scalable**: 300+ concurrent students per firewall  
-✓ **Secure**: No SSH keys, no public IPs, no inbound access  
+✓ **Secure**: No SSH keys, no inbound access  
 ✓ **Fast**: 30-minute lab with 20-minute setup  
 ✓ **Automated**: Complete cleanup script included  
 ✓ **Well-Documented**: 2,900 lines of comprehensive docs  

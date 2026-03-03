@@ -134,7 +134,7 @@ Firewall Route Table (0.0.0.0/0)
    ↓ routes to IGW
 Internet Gateway
    ↓
-Internet (Public IP conversion, NAT)
+Internet (public IP egress)
 ```
 
 **Return Traffic (Internet to EC2):**
@@ -185,11 +185,13 @@ Deployed once **per account per Region** (management overhead = minimal).
 - `FirewallName`: Name of the firewall (default: `nfw-lab`)
 - `FirewallVpcCIDR`: VPC CIDR block (default: `10.0.0.0/16`)
 - `FirewallSubnetCIDR`: Firewall subnet CIDR (default: `10.0.1.0/24`)
+- `PartnerManagedRuleGroupArn`: Optional partner-managed stateful rule group ARN (Infoblox PMR)
 
 **Outputs:**
 - `FirewallArn`: Used by student templates
 - `FirewallId`: Firewall identifier
 - `FirewallAzName`: Availability Zone hosting the firewall endpoint
+- `FirewallPolicyArn`: Policy ARN for post-deploy rule group updates
 
 ---
 
@@ -211,7 +213,7 @@ Deployed via **CloudFormation StackSets** (service-managed) across target accoun
 - **VPC Endpoint Association**: Connects to shared firewall in instructor account
 
 - **EC2 Test Instance** (t3.micro):
-  - Private IP only (no public IP)
+  - Public IP for internet egress
   - Pre-installed: `curl`, `dig`, `wget`
   - Located in protected subnet
 
@@ -405,7 +407,7 @@ aws ec2 describe-network-interfaces \
 5. Select **EC2 Instance Connect** tab
 6. Click **Connect** to open browser-based terminal
 
-No SSH keys, no public IPs required—direct browser-based access!
+No SSH keys required—direct browser-based access.
 
 **Method 2: AWS Systems Manager Session Manager (Alternative)**
 
@@ -446,7 +448,7 @@ Logging is not enabled by default in the instructor template. To enable CloudWat
 # Enable ALERT and FLOW logging
 aws network-firewall update-firewall-policy \
   --update-token <token-from-describe> \
-  --firewall-policy-arn arn:aws:network-firewall:us-east-1:ACCOUNT:firewall-policy/nfw-lab-policy \
+  --firewall-policy-arn arn:aws:network-firewall:us-east-1:ACCOUNT:firewall-policy/nfw-lab-policy-strict \
   --region us-east-1
 ```
 
@@ -549,7 +551,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"  # Or use ACCOUNT_IDS instead
 4. Check firewall rule group is attached:
    ```bash
    aws network-firewall describe-firewall-policy \
-     --firewall-policy-arn arn:aws:network-firewall:us-east-1:ACCOUNT:firewall-policy/nfw-lab-policy
+     --firewall-policy-arn arn:aws:network-firewall:us-east-1:ACCOUNT:firewall-policy/nfw-lab-policy-strict
    ```
 
 ### Issue: CloudWatch Logs Not Appearing (If Enabled)
@@ -570,7 +572,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"  # Or use ACCOUNT_IDS instead
 ## Security Considerations
 
 - **No Inbound Access**: Instances have no inbound rules except from EIC endpoint
-- **No Public IPs**: All communication through VPC endpoints and internal routing
+- **Public IP Egress**: Student instances use public IPs for IGW egress while still routed through the firewall
 - **Minimal Permissions**: IAM role only needs ec2-instance-connect permissions for EIC
 - **Ephemeral Lab**: Resources are temporary; logging retention is configurable if enabled
 - **Bidirectional Inspection**: Network Firewall performs deep packet inspection on outbound AND return traffic
@@ -583,7 +585,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"  # Or use ACCOUNT_IDS instead
 | Component | Cost | Duration |
 |-----------|------|----------|
 | Network Firewall | ~$30/region/month | 30 min ≈ $0.02 |
-| VPC Endpoints (3 per student) | ~$7.30/region/month per endpoint | 30 min ≈ $0.007 |
+| EC2 Instance Connect Endpoint | Minimal (service-managed) | 30 min ≈ $0.00 |
 | EC2 t3.micro | ~$9.50/month | 30 min ≈ $0.005 |
 | CloudWatch Logs (if enabled) | ~$0.50/GB stored | Minimal (~$0.01) |
 | **Total per Student/Region** | | **~$0.04** |

@@ -4,12 +4,12 @@
 
 ### ✓ nfw-instructor.yaml (Instructor Shared Firewall)
 - **Status**: ✓ COMPLETE
-- **Lines**: 155
+- **Lines**: 199
 - **Structure**: Valid CloudFormation YAML
 - **Key Sections**:
   - AWSTemplateFormatVersion: '2010-09-09' ✓
   - Description: Complete and comprehensive ✓
-  - Parameters: 3 parameters (FirewallName, FirewallSubnetCIDR, FirewallVpcCIDR) ✓
+  - Parameters: 4 parameters (FirewallName, FirewallSubnetCIDR, FirewallVpcCIDR, PartnerManagedRuleGroupArn) ✓
   - Resources: 
     - AWS::EC2::VPC (FirewallVpc) ✓
     - AWS::EC2::Subnet (FirewallSubnet) ✓
@@ -18,7 +18,7 @@
     - AWS::EC2::Route (RouteToIGW) ✓
     - AWS::NetworkFirewall::FirewallPolicy (FirewallPolicy) ✓
     - AWS::NetworkFirewall::Firewall (NetworkFirewall) ✓
-  - Outputs: 4 outputs (FirewallArn, FirewallId, FirewallAzName, FirewallVpcId) ✓
+  - Outputs: 5 outputs (FirewallArn, FirewallId, FirewallPolicyArn, FirewallAzName, FirewallVpcId) ✓
   - Balanced brackets/braces: ✓
 
 **Deployment Notes**:
@@ -30,7 +30,7 @@
 
 ### ✓ nfw-student-min.yaml (Per-Student VPC & EC2)
 - **Status**: ✓ COMPLETE
-- **Lines**: 299
+- **Lines**: 374
 - **Structure**: Valid CloudFormation YAML
 - **Key Sections**:
   - AWSTemplateFormatVersion: '2010-09-09' ✓
@@ -93,7 +93,7 @@
 
 ### ✓ README.md (Comprehensive Documentation)
 - **Status**: ✓ COMPLETE
-- **Lines**: 514
+- **Lines**: 617
 - **Sections**:
   1. **Overview** - Lab purpose and key features ✓
   2. **Architecture** - ASCII diagrams showing:
@@ -108,7 +108,7 @@
      - Verification commands ✓
   5. **Student Lab Instructions** - Hands-on exercises:
      - EC2 Instance Connect (EIC) Endpoint access (browser-based SSH) ✓
-     - Alternative: Session Manager access ✓
+    - Alternative: Session Manager access (optional if enabled) ✓
      - Lab exercises (DNS queries, HTTPS tests, ICMP ping) ✓
      - Bidirectional inspection explanation ✓
     - Optional CloudWatch log viewing ✓
@@ -217,7 +217,7 @@
 - [ ] EIC Endpoints created and available in each student VPC
 - [ ] Firewall Endpoint Associations configured and active
 - [ ] Student can access instance via EC2 Instance Connect Endpoint
-- [ ] Student can also access via Session Manager (optional fallback)
+- [ ] Student can also access via Session Manager (optional if enabled)
 - [ ] Test curl/dig commands work from EC2 instance (firewall allows traffic)
 - [ ] Test blocked traffic times out (firewall blocks non-allowed traffic)
 - [ ] (Optional) CloudWatch log groups populated with firewall rules
@@ -234,7 +234,7 @@
 ## Security Validation
 
 ✓ **Network Security**:
-- No public IPs assigned to student instances
+- Public IPs assigned to student instances for egress
 - No inbound security group rules except from EIC endpoint
 - All outbound traffic routes through Network Firewall for inspection
 - Return traffic routes through firewall via IGW edge route tables (bidirectional inspection)
@@ -244,7 +244,7 @@
 - IAM roles minimal (not required for EIC endpoint access)
 - EIC endpoint provides browser-based SSH (no SSH keys required)
 - No SSH keys or console access required (EIC endpoint only)
-- Alternative: Session Manager access also supported
+- Alternative: Session Manager access optional if enabled by instructor
 
 ✓ **Data Protection**:
 - VPC endpoints private (no internet exposure)
@@ -276,7 +276,7 @@
 
 1. **AMI IDs**: Mapped AMIs are for Amazon Linux 2023 (update if using different distro)
 2. **Regions**: Only tested with us-east-1, eu-west-2, ap-southeast-1 (update RegionMap for other regions)
-3. **Firewall Rules**: No rule group included by default (add rules post-deploy if needed)
+3. **Firewall Rules**: Default allow rule group included; partner-managed groups optional
 4. **Capacity**: FirewallRuleGroup capacity set to 100 (increase for complex rule sets)
 5. **VPC CIDR**: Example uses 10.x.x.x range (change if conflicts with existing infrastructure)
 
@@ -286,11 +286,11 @@
 
 | File | Type | Lines | Status |
 |------|------|-------|--------|
-| nfw-instructor.yaml | CloudFormation YAML | 231 | ✓ Complete & Valid |
-| nfw-student-min.yaml | CloudFormation YAML | 366 | ✓ Complete & Valid (EIC + IGW routing) |
+| nfw-instructor.yaml | CloudFormation YAML | 199 | ✓ Complete & Valid |
+| nfw-student-min.yaml | CloudFormation YAML | 374 | ✓ Complete & Valid (EIC + IGW routing) |
 | lab-cleanup.sh | Bash Script | 257 | ✓ Complete & Valid |
-| README.md | Markdown | 574 | ✓ Updated with EIC diagrams |
-| aws-lab-min-mission.md | Mission Guide | 1202 | Reference Document |
+| README.md | Markdown | 617 | ✓ Updated with EIC diagrams |
+| aws-lab-min-mission.md | Mission Guide | 1111 | Reference Document |
 
 ---
 

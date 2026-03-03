@@ -5,13 +5,13 @@
 Your AWS Network Firewall multi-account lab is **complete and ready to deploy**. Here are all the files:
 
 ### Core Deployment Files
-1. **nfw-instructor.yaml** (155 lines)
+1. **nfw-instructor.yaml** (199 lines)
    - Shared Network Firewall infrastructure per account/region
    - Single-AZ firewall (rule groups optional)
    - Optional logging (enable post-deploy)
    - Deploy once per region in instructor account
 
-2. **nfw-student-min.yaml** (366 lines)
+2. **nfw-student-min.yaml** (374 lines)
    - Per-student VPC with EC2 instance
    - VPC Endpoint Association to shared firewall
    - EC2 Instance Connect (EIC) Endpoint for browser-based SSH
@@ -25,7 +25,7 @@ Your AWS Network Firewall multi-account lab is **complete and ready to deploy**.
    - Tested for robustness and timeout handling
 
 ### Documentation
-4. **README.md** (514 lines)
+4. **README.md** (617 lines)
    - Complete deployment guide with step-by-step instructions
    - **3 ASCII architecture diagrams**:
      - AWS Organizations hierarchy
@@ -47,7 +47,7 @@ Your AWS Network Firewall multi-account lab is **complete and ready to deploy**.
 ## Key Highlights
 
 ✓ **Scalable**: 300+ students per firewall via VPC Endpoint Associations  
-✓ **Secure**: Browser-based SSH via EC2 Instance Connect (no SSH keys, no public IPs)  
+✓ **Secure**: Browser-based SSH via EC2 Instance Connect (no SSH keys)  
 ✓ **Bidirectional Inspection**: IGW edge routes ensure return traffic is inspected  
 ✓ **Multi-Region**: us-east-1, eu-west-2, ap-southeast-1  
 ✓ **Fast**: Full deployment in ~30 minutes  
@@ -140,6 +140,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 - `FirewallName` (default: nfw-lab)
 - `FirewallVpcCIDR` (default: 10.0.0.0/16)
 - `FirewallSubnetCIDR` (default: 10.0.1.0/24)
+- `PartnerManagedRuleGroupArn` (optional, Infoblox PMR or other partner rule group)
 
 **nfw-student-min.yaml**:
 - `FirewallArn` (required - from instructor stack outputs)
@@ -161,9 +162,9 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 | nfw-instructor.yaml | ✓ VALID | 11 resources, proper YAML syntax, all outputs defined |
 | nfw-student-min.yaml | ✓ VALID | 15 resources, bidirectional inspection with IGW routing |
 | lab-cleanup.sh | ✓ VALID | Bash syntax verified, error handling implemented |
-| README.md | ✓ VALID | 574 lines, updated architecture diagrams, complete guide |
+| README.md | ✓ VALID | 617 lines, updated architecture diagrams, complete guide |
 | Architecture | ✓ CORRECT | Matches mission requirements with bidirectional inspection |
-| Security | ✓ VERIFIED | No public IPs, EIC endpoint + optional Session Manager access |
+| Security | ✓ VERIFIED | Public IP egress for students, EIC endpoint access |
 
 ---
 
@@ -175,7 +176,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 4. **Deploy Instructor Stack** - One per region per account
 5. **Create StackSet** - With region-specific FirewallArn parameters
 6. **Verify Deployment** - Check Fleet Manager for EC2 instances
-7. **Run Lab** - Students access instances via Session Manager
+7. **Run Lab** - Students access instances via EC2 Instance Connect
 8. **Cleanup** - Use lab-cleanup.sh when finished
 
 ---
@@ -195,7 +196,7 @@ export OU_ID="ou-xxxx-yyyyyyyy"
 | Deployment Time | ~15-20 minutes |
 | Students Per Firewall | 300+ (quota limited) |
 | CloudWatch Log Latency | Real-time (seconds) |
-| Session Manager Connect | <2 seconds |
+| EIC Endpoint Connect | <2 seconds |
 | Lab Cost/Student/Region | $0.04 for 30 minutes |
 | Multi-Region Deployment | ~5-10 minutes per region |
 

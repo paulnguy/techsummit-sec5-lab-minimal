@@ -3,6 +3,8 @@
 **Date**: March 1, 2026  
 **Purpose**: Update all lab documentation to reflect actual implementation using EC2 Instance Connect (EIC) Endpoint instead of SSM Session Manager, and to document bidirectional firewall inspection with IGW edge route tables.
 
+**March 2, 2026 Addendum**: Updated templates and documentation to reflect strict-order firewall policy for partner-managed rule groups and public IP egress for student instances.
+
 ---
 
 ## Overview of Changes
@@ -12,6 +14,14 @@ The lab implementation uses:
 - ✅ **Optional Session Manager** as fallback access method
 - ✅ **IGW Edge Route Tables** for bidirectional traffic inspection
 - ✅ **Two-subnet architecture**: Protected Subnet (EC2) + Firewall Subnet (Endpoint Association)
+- ✅ **Strict-order firewall policy** for partner-managed rule groups
+- ✅ **Public IP egress** for student instances (required for IGW routing)
+
+Additional March 2 updates:
+- Added `PartnerManagedRuleGroupArn` parameter to instructor template
+- Firewall policy uses `STRICT_ORDER` with `StatefulDefaultActions`
+- Student documentation updated for strict-order Infoblox PMR attachment
+- Refreshed line counts: nfw-instructor.yaml (199), nfw-student-min.yaml (374), README.md (617), QUICK_START.md (225), STUDENT_DEPLOYMENT_GUIDE.md (763), INDEX.md (349), DELIVERABLES.md (366), VALIDATION_REPORT.md (314), 00_START_HERE.md (472), aws-lab-min-mission.md (1111)
 
 All documentation has been updated to reflect this architecture.
 

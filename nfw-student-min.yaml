@@ -278,7 +278,7 @@ Resources:
           Value: !Sub '${LabName}-eic-endpoint'
 
   # ============================================================================
-  # Student Test Instance (t3.micro, private IP only, EIC access)
+  # Student Test Instance (t3.micro with public IP for IGW routing)
   # ============================================================================
   StudentTestInstance:
     Type: AWS::EC2::Instance
@@ -288,9 +288,12 @@ Resources:
         - !Ref 'AWS::Region'
         - AMI
       InstanceType: !Ref InstanceType
-      SubnetId: !Ref ProtectedSubnet
-      SecurityGroupIds:
-        - !Ref InstanceSecurityGroup
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet:
+            - !Ref InstanceSecurityGroup
+          SubnetId: !Ref ProtectedSubnet
       EbsOptimized: false
       Monitoring: false
       Tags:
@@ -339,6 +342,12 @@ Outputs:
     Value: !GetAtt StudentTestInstance.PrivateIp
     Export:
       Name: !Sub '${LabName}-instance-private-ip'
+
+  TestInstancePublicIp:
+    Description: Public IP address of the test instance (for IGW routing)
+    Value: !GetAtt StudentTestInstance.PublicIp
+    Export:
+      Name: !Sub '${LabName}-instance-public-ip'
 
   EICEndpointId:
     Description: EC2 Instance Connect Endpoint ID (use for browser-based SSH)

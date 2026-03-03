@@ -25,6 +25,12 @@ Parameters:
     AllowedPattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}$'
     Description: CIDR block for firewall VPC
 
+  PartnerManagedRuleGroupArn:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^arn:aws:network-firewall:[a-z0-9-]+:partner-managed:stateful-rulegroup\/[A-Za-z0-9-]+$'
+    Description: Optional partner managed stateful rule group ARN (for example Infoblox PMR)
+
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -34,6 +40,10 @@ Metadata:
           - FirewallName
           - FirewallVpcCIDR
           - FirewallSubnetCIDR
+          - PartnerManagedRuleGroupArn
+
+Conditions:
+  HasPartnerManagedRuleGroup: !Not [!Equals [!Ref PartnerManagedRuleGroupArn, '']]
 
 Resources:
   # ============================================================================
@@ -107,67 +117,12 @@ Resources:
       Capacity: 100
       RuleGroup:
         RulesSource:
-          StatefulRules:
-            # Allow HTTP (TCP 80)
-            - Action: PASS
-              Header:
-                Protocol: TCP
-                Source: ANY
-                SourcePort: ANY
-                Destination: ANY
-                DestinationPort: '80'
-                Direction: FORWARD
-              RuleOptions:
-                - Keyword: sid
-                  Settings: ['1']
-            # Allow HTTPS (TCP 443)
-            - Action: PASS
-              Header:
-                Protocol: TCP
-                Source: ANY
-                SourcePort: ANY
-                Destination: ANY
-                DestinationPort: '443'
-                Direction: FORWARD
-              RuleOptions:
-                - Keyword: sid
-                  Settings: ['2']
-            # Allow DNS (UDP 53)
-            - Action: PASS
-              Header:
-                Protocol: UDP
-                Source: ANY
-                SourcePort: ANY
-                Destination: ANY
-                DestinationPort: '53'
-                Direction: FORWARD
-              RuleOptions:
-                - Keyword: sid
-                  Settings: ['3']
-            # Allow DNS (TCP 53)
-            - Action: PASS
-              Header:
-                Protocol: TCP
-                Source: ANY
-                SourcePort: ANY
-                Destination: ANY
-                DestinationPort: '53'
-                Direction: FORWARD
-              RuleOptions:
-                - Keyword: sid
-                  Settings: ['4']
-            # Allow ICMP (ping)
-            - Action: PASS
-              Header:
-                Protocol: ICMP
-                Source: ANY
-                SourcePort: ANY
-                Destination: ANY
-                DestinationPort: ANY
-                Direction: FORWARD
-              RuleOptions:
-                - Keyword: sid
-                  Settings: ['5']
+          RulesString: |
+            pass tcp any any -> any 80 (msg:"Allow HTTP"; sid:1;)
+            pass tcp any any -> any 443 (msg:"Allow HTTPS"; sid:2;)
+            pass udp any any -> any 53 (msg:"Allow DNS UDP"; sid:3;)
+            pass tcp any any -> any 53 (msg:"Allow DNS TCP"; sid:4;)
+            pass icmp any any -> any any (msg:"Allow ICMP"; sid:5;)
       Description: Allow HTTP, HTTPS, DNS, and ICMP traffic for lab testing
       Tags:
         - Key: Name
@@ -176,17 +131,23 @@ Resources:
   FirewallPolicy:
     Type: AWS::NetworkFirewall::FirewallPolicy
     Properties:
-      FirewallPolicyName: !Sub '${FirewallName}-policy'
+      FirewallPolicyName: !Sub '${FirewallName}-policy-strict'
       FirewallPolicy:
         StatelessDefaultActions:
           - 'aws:forward_to_sfe'
         StatelessFragmentDefaultActions:
           - 'aws:forward_to_sfe'
+        StatefulDefaultActions:
+          - 'aws:alert_established'
         StatefulRuleGroupReferences:
-          - ResourceArn: !GetAtt AllowInternetTrafficRuleGroup.RuleGroupArn
+          - !If
+            - HasPartnerManagedRuleGroup
+            - ResourceArn: !Ref PartnerManagedRuleGroupArn
+              Priority: 10
+            - !Ref AWS::NoValue
         StatefulEngineOptions:
-          RuleOrder: DEFAULT_ACTION_ORDER
-      Description: Firewall policy for lab. Supports dynamic partner managed rules via StatefulEngineOptions.
+          RuleOrder: STRICT_ORDER
+      Description: Firewall policy for lab. Strict order policy for partner managed rules.
       Tags:
         - Key: Name
           Value: !Sub '${FirewallName}-policy'

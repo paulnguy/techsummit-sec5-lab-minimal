@@ -10,22 +10,22 @@ This package contains everything needed to deploy a scalable, production-ready A
 
 ### Deployment Templates (CloudFormation)
 
-**1. nfw-instructor.yaml** (231 lines)
+**1. nfw-instructor.yaml** (199 lines)
 - Instructor shared Network Firewall per account per region
 - Firewall VPC (10.0.0.0/16) with subnet (10.0.1.0/24) in AZ-a
 - Internet Gateway for egress routing
 - Network Firewall with AllowInternetTrafficRuleGroup (HTTP/HTTPS/DNS/ICMP)
-- FirewallPolicy with stateful rules
+- FirewallPolicy with strict order (partner-managed rules)
 - Optional logging (CloudWatch Logs, enable post-deploy)
 - 4 outputs for cross-stack integration (FirewallArn, FirewallId, etc.)
 - **Regions**: us-east-1, eu-west-2, ap-southeast-1
 - **Deployment**: Once per account per region
 - **Quota Impact**: 1 firewall per region (default quota: 5)
 
-**2. nfw-student-min.yaml** (366 lines)
+**2. nfw-student-min.yaml** (374 lines)
 - Per-student isolated VPC with bidirectional firewall inspection
 - **Network Architecture**:
-  - Protected Subnet (10.1.1.0/24): EC2 instance with private IP only
+  - Protected Subnet (10.1.1.0/24): EC2 instance with public IP for egress
   - Firewall Subnet (10.1.2.0/24): Firewall endpoint association
   - Route Table: Protected → 0.0.0.0/0 → Firewall Endpoint
   - Route Table: Firewall → 0.0.0.0/0 → Internet Gateway
@@ -56,7 +56,7 @@ This package contains everything needed to deploy a scalable, production-ready A
 
 ### Documentation
 
-**4. README.md** (574 lines)
+**4. README.md** (617 lines)
 - Complete lab overview and key features
 - **Updated ASCII Architecture Diagrams**:
   - AWS Organizations hierarchy (management + accounts)
@@ -129,11 +129,7 @@ Instructor Account:
 Student Accounts (Multiple):
 ├─ Student VPC (10.1.0.0/16)
 │  ├─ Student Subnet (10.1.1.0/24) in AZ-a
-│  ├─ EC2 Instance (t3.micro) with SSM role
-│  ├─ SSM Endpoints (3x):
-│  │  ├─ com.amazonaws.us-east-1.ssm
-│  │  ├─ com.amazonaws.us-east-1.ec2messages
-│  │  └─ com.amazonaws.us-east-1.ssmmessages
+│  ├─ EC2 Instance (t3.micro) with public IP for egress
 │  ├─ Route Table: 0.0.0.0/0 → VPC Endpoint Association (Firewall)
 │  └─ Security Groups:
 │     ├─ VPC Endpoint SG (HTTPS 443 inbound)
@@ -175,7 +171,7 @@ Student Accounts (Multiple):
 
 ### Phase 4: Validation
 - [ ] Check Fleet Manager: all instances show "Online"
-- [ ] Test Session Manager access from one instance
+- [ ] Test EC2 Instance Connect access from one instance
 - [ ] (Optional) Verify CloudWatch logging if enabled
 
 ### Phase 5: Student Lab Use
@@ -194,12 +190,12 @@ Student Accounts (Multiple):
 ## 🔐 Security Features
 
 ✓ **Network Isolation**
-- No public IPs for student instances
+- Public IPs for student egress (still inspected by firewall)
 - Private subnets with restricted security groups
 - Firewall as central inspection point
 
 ✓ **Access Control**
-- Session Manager for console access (no SSH keys)
+- EC2 Instance Connect endpoint for console access (no SSH keys)
 - IAM roles with least-privilege permissions
 - AWS managed policies only (no custom policies)
 - No inbound security group rules
@@ -224,7 +220,7 @@ Student Accounts (Multiple):
 | **VPC Endpoint Associations** | 300+ per firewall | AWS quota |
 | **Students Per Firewall** | 300+ concurrent | Same as associations |
 | **Deployment Time** | ~15-20 minutes | Firewall provisioning slowest |
-| **Session Manager Latency** | <2 seconds | Standard AWS service |
+| **EIC Endpoint Connect** | <2 seconds | Browser-based access |
 | **CloudWatch Log Latency** | Real-time (<1s) | Immediate on rule match |
 | **Cost Per Student/Region** | $0.04 (30 min) | Firewall cost is shared |
 
@@ -284,7 +280,7 @@ lab-cleanup.sh
 ### Architecture Compliance
 - ✓ Matches mission guide requirements exactly
 - ✓ VPC Endpoint Association properly configured
-- ✓ SSM endpoints configured correctly
+- ✓ EIC endpoint configured correctly
 - ✓ Rule groups can be added post-deploy if needed
 - ✓ Logging can be enabled post-deploy if needed
 - ✓ Single-AZ design (AZ-aligned)
@@ -351,7 +347,7 @@ All documentation is self-contained. Refer to:
 - **Lab Version**: 1.0
 - **CloudFormation Version**: AWS::CloudFormation::Init (CFN 2010-09-09)
 - **Tested Regions**: us-east-1, eu-west-2, ap-southeast-1
-- **AWS Services Used**: Network Firewall, VPC, EC2, SSM, CloudWatch, CloudFormation, IAM
+- **AWS Services Used**: Network Firewall, VPC, EC2, EC2 Instance Connect, CloudWatch, CloudFormation, IAM
 - **Estimated Lab Duration**: 30 minutes (instructor + students)
 - **Maximum Concurrent Students**: 300+ per firewall per region
 - **Infrastructure Lifetime**: Ephemeral (cleanup removes all resources)

@@ -222,6 +222,8 @@ aws ec2 describe-instance-status \
 
 ### Option B: Via Systems Manager Session Manager (Alternative)
 
+**Note**: Session Manager is only available if your instructor enabled SSM permissions and endpoints. If it is not enabled, use EC2 Instance Connect.
+
 ```bash
 # Start a Session Manager session to your instance
 aws ssm start-session \
@@ -236,7 +238,7 @@ aws ssm start-session \
 ### Why Two Methods?
 
 - **EIC**: Browser-based, faster connection, uses EC2 Instance Connect Endpoint
-- **Session Manager**: Alternative method, requires SSM role (both enable secure access)
+- **Session Manager**: Optional method, requires instructor-enabled SSM role/endpoints
 - **Both bypass the firewall** (SSH port 22 goes directly via EIC/SSM, not inspected)
 
 ---
@@ -365,34 +367,48 @@ Infoblox Persistent Malware Reputation (PMR) is a threat intelligence rule group
 Once subscribed, the rule group becomes available in your region. Add it to your firewall policy:
 
 ```bash
-FIREWALL_POLICY_ARN="arn:aws:network-firewall:us-east-1:ACCOUNT:firewall-policy/nfw-lab-policy"
-INFOBLOX_RULE_GROUP_ARN="arn:aws:network-firewall:us-east-1:ACCOUNT:stateful-rulegroup/infoblox-pmr"
+FIREWALL_POLICY_ARN="arn:aws:network-firewall:us-east-1:ACCOUNT:firewall-policy/nfw-lab-policy-strict"
+INFOBLOX_RULE_GROUP_ARN="arn:aws:network-firewall:us-east-1:partner-managed:stateful-rulegroup/Infoblox-LimitedPreview-RG0"
 
-# Update firewall policy to include Infoblox rule group
+# Create a strict-order policy update with Infoblox PMR attached
+cat << 'EOF' > policy.json
+{
+  "StatelessDefaultActions": ["aws:forward_to_sfe"],
+  "StatelessFragmentDefaultActions": ["aws:forward_to_sfe"],
+  "StatefulDefaultActions": ["aws:alert_established"],
+  "StatefulRuleGroupReferences": [
+    {
+      "ResourceArn": "REPLACE_INFOBLOX_ARN",
+      "Priority": 10
+    }
+  ],
+  "StatefulEngineOptions": {
+    "RuleOrder": "STRICT_ORDER"
+  }
+}
+EOF
+
+sed -i.bak "s|REPLACE_INFOBLOX_ARN|${INFOBLOX_RULE_GROUP_ARN}|" policy.json
+
+UPDATE_TOKEN=$(aws network-firewall describe-firewall-policy \
+  --firewall-policy-arn ${FIREWALL_POLICY_ARN} \
+  --region us-east-1 \
+  --query 'UpdateToken' \
+  --output text)
+
 aws network-firewall update-firewall-policy \
   --firewall-policy-arn ${FIREWALL_POLICY_ARN} \
-  --firewall-policy '{
-    "StatefulRuleGroupReferences": [
-      {
-        "ResourceArn": "arn:aws:network-firewall:us-east-1:ACCOUNT:stateful-rulegroup/AllowInternetTraffic",
-        "Priority": 1
-      },
-      {
-        "ResourceArn": "'${INFOBLOX_RULE_GROUP_ARN}'",
-        "Priority": 2
-      }
-    ]
-  }' \
+  --update-token ${UPDATE_TOKEN} \
+  --firewall-policy file://policy.json \
   --region us-east-1
 ```
 
 **Rule Group Placement**:
-- **Stateless Rule Groups**: Added under Stateless rule group references with priority ordering
-- **Stateful Rule Groups**: Added under Stateful rule group references (Infoblox PMR is stateful)
+- **Stateful Rule Groups**: Infoblox PMR is a stateful partner-managed rule group
 
 **Priority Considerations**:
 - Lower priority = evaluated first
-- Recommended: Custom rules (priority 1), Infoblox PMR (priority 2)
+- Recommended: Infoblox PMR priority 10 (leave room for custom groups later)
 - Action: Allow/Alert/Drop based on rule group configuration
 
 #### Step 3: Verify Firewall is Using Updated Policy
@@ -685,7 +701,7 @@ aws cloudformation list-stack-resources --stack-name ${STACK_NAME} --region ${RE
 INSTANCE_ID=$(aws cloudformation describe-stacks --stack-name ${STACK_NAME} --region ${REGION} --query 'Stacks[0].Outputs[?OutputKey==`TestInstanceId`].OutputValue' --output text)
 aws ec2-instance-connect open-tunnel --instance-id ${INSTANCE_ID} --region ${REGION}
 
-# Method 3: Session Manager (Alternative)
+# Method 3: Session Manager (Alternative, if enabled by instructor)
 aws ssm start-session --target ${INSTANCE_ID} --region ${REGION}
 ```
 
@@ -709,7 +725,7 @@ After completing this lab, you understand:
 ✅ Multi-account AWS deployments  
 ✅ CloudFormation stack automation  
 ✅ EC2 Instance Connect (browser-based secure access)  
-✅ AWS Session Manager (alternative secure shell-less access)  
+✅ AWS Session Manager (optional, if enabled)  
 ✅ Bidirectional firewall inspection (outbound + return traffic)  
 ✅ IGW edge route tables for return traffic inspection  
 ✅ VPC security and network isolation  
