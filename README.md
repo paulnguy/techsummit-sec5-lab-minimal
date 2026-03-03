@@ -187,6 +187,19 @@ Deployed once **per account per Region** (management overhead = minimal).
 - `FirewallSubnetCIDR`: Firewall subnet CIDR (default: `10.0.1.0/24`)
 - `PartnerManagedRuleGroupArn`: Optional partner-managed stateful rule group ARN (Infoblox PMR)
 
+**Partner-Managed Rule Group ARN Examples:**
+- Pattern: `arn:aws:network-firewall:<region>:partner-managed:stateful-rulegroup/<RuleGroupName>`
+- Example (us-east-1):
+  - `arn:aws:network-firewall:us-east-1:partner-managed:stateful-rulegroup/Infoblox-LimitedPreview-RG0`
+- Get exact ARNs for your region:
+  ```bash
+  aws network-firewall list-rule-groups \
+    --scope MANAGED \
+    --region us-east-1 \
+    --query 'RuleGroups[?contains(Name, `Infoblox`) || contains(Name, `PMR`)].{Name:Name,Arn:Arn}' \
+    --output table
+  ```
+
 **Outputs:**
 - `FirewallArn`: Used by student templates
 - `FirewallId`: Firewall identifier
